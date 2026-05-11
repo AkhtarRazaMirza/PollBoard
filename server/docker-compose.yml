@@ -1,0 +1,21 @@
+version: "3.9"
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: polling-mongodb
+
+    ports:
+      - "27017:27017"
+
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: akhtar
+      MONGO_INITDB_ROOT_PASSWORD: raza
+
+    volumes:
+      - mongo-data:/data/db
+
+    restart: unless-stopped
+
+volumes:
+  mongo-data:
