@@ -17,7 +17,8 @@ const answerSchema = new mongoose.Schema(
                     return value.trim().length > 0;
                 },
 
-                message: "Selected option cannot be empty",
+                message:
+                    "Selected option cannot be empty",
             },
         },
     },
@@ -37,7 +38,7 @@ const responseSchema = new mongoose.Schema(
         respondent: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
-            default: null,
+            required: true,
         },
 
         answers: {
@@ -46,10 +47,14 @@ const responseSchema = new mongoose.Schema(
 
             validate: {
                 validator: function (answers) {
-                    return Array.isArray(answers) && answers.length > 0;
+                    return (
+                        Array.isArray(answers) &&
+                        answers.length > 0
+                    );
                 },
 
-                message: "Response must contain at least one answer",
+                message:
+                    "Response must contain at least one answer",
             },
         },
 
@@ -63,4 +68,13 @@ const responseSchema = new mongoose.Schema(
     }
 );
 
-export const Response = mongoose.model("Response", responseSchema);
+// prevent duplicate voting
+responseSchema.index(
+    { poll: 1, respondent: 1 },
+    { unique: true }
+);
+
+export const Response = mongoose.model(
+    "Response",
+    responseSchema
+);

@@ -1,27 +1,26 @@
 import { Router } from "express";
 
+import PollController from "../controllers/poll.controller.js";
+
+import { authMiddleware } from "../middleware/auth.middeleware.js";
+
 const router = Router();
 
-router.post("/", (req, res) => {
-  res.json({ message: "Poll creation attempt" });
-});
+router.use(authMiddleware);
 
-router.get("/:id", (req, res) => {
-  const { id } = req.params;
-  res.json({ message: `Fetching poll with ID: ${id}` });
-});
+// create poll
+router.post("/", PollController.createPoll);
 
-router.post("/:id/vote", (req, res) => {
-  const { id } = req.params;
-  const { option } = req.body;
-  res.json({ message: `Voting for option ${option} in poll with ID: ${id}` });
-});
+// get poll
+router.get("/:pollId", PollController.getPollById);
 
-router.get("/:id/results", (req, res) => {
-  const { id } = req.params;
-  res.json({ message: `Fetching results for poll with ID: ${id}` });
-});
+// vote on poll
+router.post("/:pollId/vote", PollController.votePoll);
 
-
+// get results
+router.get(
+    "/:pollId/results",
+    PollController.getPollResults
+);
 
 export default router;

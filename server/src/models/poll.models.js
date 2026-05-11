@@ -1,35 +1,56 @@
 import mongoose from "mongoose";
 
-const questionSchema = new mongoose.Schema({
-    questionText: {
-        type: String,
-        required: true,
-        trim: true,
-    },
+const questionSchema = new mongoose.Schema(
+    {
+        questionText: {
+            type: String,
+            required: true,
+            trim: true,
+            maxlength: 500,
 
-    options: {
-        type: [
-            {
-                type: String,
-                required: true,
-                trim: true,
+            validate: {
+                validator: function (value) {
+                    return value.trim().length > 0;
+                },
+
+                message: "Question text cannot be empty",
             },
-        ],
+        },
 
-        validate: {
-            validator: function (options) {
-                return options.length >= 2;
+        options: {
+            type: [
+                {
+                    type: String,
+                    required: true,
+                    trim: true,
+                    maxlength: 200,
+                },
+            ],
+
+            validate: {
+                validator: function (options) {
+                    return (
+                        Array.isArray(options) &&
+                        options.length >= 2 &&
+                        options.every(
+                            (option) =>
+                                typeof option === "string" &&
+                                option.trim().length > 0
+                        )
+                    );
+                },
+
+                message:
+                    "Question must contain at least 2 non-empty options",
             },
+        },
 
-            message: "Question must contain at least 2 options",
+        isRequired: {
+            type: Boolean,
+            default: true,
         },
     },
-
-    required: {
-        type: Boolean,
-        default: true,
-    },
-});
+);
 
 const pollSchema = new mongoose.Schema(
     {
@@ -38,6 +59,14 @@ const pollSchema = new mongoose.Schema(
             required: true,
             trim: true,
             maxlength: 255,
+
+            validate: {
+                validator: function (value) {
+                    return value.trim().length > 0;
+                },
+
+                message: "Poll title cannot be empty",
+            },
         },
 
         pollDescription: {
@@ -58,10 +87,14 @@ const pollSchema = new mongoose.Schema(
 
             validate: {
                 validator: function (questions) {
-                    return Array.isArray(questions) && questions.length > 0;
+                    return (
+                        Array.isArray(questions) &&
+                        questions.length > 0
+                    );
                 },
 
-                message: "Poll must contain at least one question",
+                message:
+                    "Poll must contain at least one question",
             },
         },
 
@@ -98,5 +131,11 @@ const pollSchema = new mongoose.Schema(
         timestamps: true,
     }
 );
+
+pollSchema.virtual("isExpired").get(function () {
+    return this.expiresAt && this.expiresAt < new Date();
+});
+
+pollSchema.index({ expiresAt: 1 });
 
 export const Poll = mongoose.model("Poll", pollSchema);

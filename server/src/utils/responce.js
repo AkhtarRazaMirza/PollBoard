@@ -65,6 +65,17 @@ export class ApiResponse {
             data
         );
     }
+
+    static findOne(
+        massage = "Data finded successfully",
+        data = null
+    ) {
+        return new ApiResponse(
+            200,
+            massage,
+            data
+        )
+    }
 }
 
 export default ApiResponse;
