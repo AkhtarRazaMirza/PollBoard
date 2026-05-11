@@ -1,39 +1,39 @@
 import { Router } from "express";
 
+import { AuthController }
+from "../controllers/auth.controller.js";
+
+import { authMiddleware }
+from "../middleware/auth.middeleware.js";
+
 const router = Router();
 
-router.post("/login", (req, res) => {
-  const { username, password } = req.body;
-  res.json({ message: `Login attempt for ${username} with password ${password}` });
-});
+// AUTH ROUTES
 
-router.post("/register", (req, res) => {
-  const { username, password } = req.body;
-  res.json({ message: `Registration attempt for ${username} with password ${password}` });
-});
+// Register User
+router.post(
+    "/register",
+    AuthController.register
+);
 
-router.post("/logout", (req, res) => {
-  res.json({ message: "Logout attempt" });
-});
+// Login User
+router.post(
+    "/login",
+    AuthController.login
+);
 
-router.get("/me", (req, res) => {
-  res.json({ message: "Fetching current user info" });
-});
+// CURRENT USER
+router.get(
+    "/me",
+    authMiddleware,
+    AuthController.me
+);
 
-router.get("/google", (req, res) => {
-    res.json({ message: "Google OAuth attempt" });
-});
-
-router.get("/google/callback", (req, res) => {
-    res.json({ message: "Google OAuth callback" });
-});
-
-router.get("/github", (req, res) => {
-    res.json({ message: "GitHub OAuth attempt" });
-});
-
-router.get("/github/callback", (req, res) => {
-    res.json({ message: "GitHub OAuth callback" });
-});
+// LOGOUT
+router.post(
+    "/logout",
+    authMiddleware,
+    AuthController.logout
+);
 
 export default router;
