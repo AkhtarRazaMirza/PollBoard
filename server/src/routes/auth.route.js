@@ -12,7 +12,7 @@ const router = Router();
 
 // Register User
 router.post(
-    "/register",
+    "/signup",
     AuthController.register
 );
 

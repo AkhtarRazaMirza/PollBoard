@@ -27,6 +27,26 @@ class PollController {
         }
     }
 
+    // all polls 
+    static async getUserPolls(req, res, next) {
+        try {
+            const polls =
+                await PollService.getUserPolls(
+                    req.user?._id
+                );
+
+            return res.status(200).json(
+                new ApiResponse(
+                    200,
+                    polls,
+                    "User polls fetched successfully"
+                )
+            );
+        } catch (error) {
+            next(error);
+        }
+    }
+
     // get poll
     static async getPollById(
         req,

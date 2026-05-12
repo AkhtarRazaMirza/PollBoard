@@ -1,122 +1,110 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useEffect, useState } from "react";
+import AppRoutes from "./routes/AppRoutes";
+import api, {
+  clearAuthSession,
+  getStoredToken,
+  getStoredUser,
+  saveAuthSession,
+} from "./services/axios";
 
-function App() {
-  const [count, setCount] = useState(0)
+const notificationStyles = {
+  success: "border-green-200 bg-green-50 text-green-800",
+  error: "border-red-200 bg-red-50 text-red-800",
+  info: "border-blue-200 bg-blue-50 text-blue-800",
+};
+
+function ToastMessage({ notification }) {
+  if (!notification) {
+    return null;
+  }
+
+  return (
+    <div className="pointer-events-none fixed left-1/2 top-4 z-50 w-full max-w-sm -translate-x-1/2 px-4">
+      <div
+        className={`pointer-events-auto rounded-lg border px-4 py-3 text-sm shadow-soft ${
+          notificationStyles[notification.type] || notificationStyles.info
+        }`}
+      >
+        {notification.message}
+      </div>
+    </div>
+  );
+}
+
+export default function App() {
+  const [authToken, setAuthToken] = useState(getStoredToken());
+  const [currentUser, setCurrentUser] = useState(getStoredUser());
+  const [notification, setNotification] = useState(null);
+
+  const showNotification = (message, type = "info") => {
+    setNotification({ message, type });
+  };
+
+  const updateAuthSession = ({ token, user, message }) => {
+    saveAuthSession(token, user);
+    setAuthToken(token);
+    setCurrentUser(user);
+
+    if (message) {
+      showNotification(message, "success");
+    }
+  };
+
+  const logout = async ({ silent = false } = {}) => {
+    try {
+      if (authToken) {
+        await api.post("/auth/logout");
+      }
+    } catch (error) {
+      // A missing logout endpoint should not block the user from leaving the session.
+    } finally {
+      clearAuthSession();
+      setAuthToken(null);
+      setCurrentUser(null);
+
+      if (!silent) {
+        showNotification("You are logged out.", "info");
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (!notification) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setNotification(null);
+    }, 3200);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [notification]);
+
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      clearAuthSession();
+      setAuthToken(null);
+      setCurrentUser(null);
+      showNotification("Your session expired. Please log in again.", "error");
+    };
+
+    window.addEventListener("pollboard:auth-expired", handleAuthExpired);
+
+    return () => {
+      window.removeEventListener("pollboard:auth-expired", handleAuthExpired);
+    };
+  }, []);
 
   return (
     <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
+      <ToastMessage notification={notification} />
+      <AppRoutes
+        authToken={authToken}
+        currentUser={currentUser}
+        logout={logout}
+        showNotification={showNotification}
+        updateAuthSession={updateAuthSession}
+      />
     </>
-  )
+  );
 }
-
-export default App

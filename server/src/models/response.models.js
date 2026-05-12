@@ -38,7 +38,8 @@ const responseSchema = new mongoose.Schema(
         respondent: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
-            required: true,
+            required: false,
+            default: null,
         },
 
         answers: {
@@ -70,8 +71,13 @@ const responseSchema = new mongoose.Schema(
 
 // prevent duplicate voting
 responseSchema.index(
-    { poll: 1, respondent: 1 },
-    { unique: true }
+  { poll: 1, respondent: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      respondent: { $type: "objectId" },
+    },
+  }
 );
 
 export const Response = mongoose.model(

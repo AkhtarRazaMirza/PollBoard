@@ -11,6 +11,12 @@ router.use(authMiddleware);
 // create poll
 router.post("/", PollController.createPoll);
 
+// all polls
+router.get(
+    "/my-polls",
+    PollController.getUserPolls
+);
+
 // get poll
 router.get("/:pollId", PollController.getPollById);
 

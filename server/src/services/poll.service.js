@@ -58,6 +58,24 @@ class PollService {
         return poll;
     }
 
+    // get all polls
+    static async getUserPolls(userId) {
+        if (!userId) {
+            throw new ApiError(
+                401,
+                "Unauthorized"
+            );
+        }
+
+        const polls = await Poll.find({
+            creator: userId,
+        }).sort({
+            createdAt: -1,
+        });
+
+        return polls;
+    }
+
     // get poll by id
     static async getPollById(pollId) {
         // validate mongo id
@@ -90,7 +108,6 @@ class PollService {
         return poll;
     }
 
-    // vote poll
     // vote poll
     static async votePoll(data) {
         const { pollId, userId, body } = data;
@@ -144,17 +161,19 @@ class PollService {
         }
 
         // check duplicate vote
-        const alreadyVoted =
-            await Response.findOne({
-                poll: pollId,
-                respondent: userId,
-            });
+        if (userId) {
+            const alreadyVoted =
+                await Response.findOne({
+                    poll: pollId,
+                    respondent: userId,
+                });
 
-        if (alreadyVoted) {
-            throw new ApiError(
-                400,
-                "You have already voted in this poll"
-            );
+            if (alreadyVoted) {
+                throw new ApiError(
+                    400,
+                    "You have already voted in this poll"
+                );
+            }
         }
 
         // create response
