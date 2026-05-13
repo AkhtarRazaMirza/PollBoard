@@ -3,10 +3,10 @@ import bcrypt from "bcryptjs";
 import { User } from "../models/user.models.js";
 
 import { ApiError }
-from "../utils/error.js";
+    from "../utils/error.js";
 
 import { TokenService }
-from "../utils/token.js";
+    from "../utils/token.js";
 
 export class AuthService {
 
@@ -37,10 +37,13 @@ export class AuthService {
         }
 
         // CHECK EXISTING USER
+        const normalizedEmail =
+            email.trim().toLowerCase();
 
         const existingUser =
             await User.findOne({
-                email,
+                email:
+                    normalizedEmail,
             });
 
         if (existingUser) {
@@ -59,12 +62,12 @@ export class AuthService {
             );
 
         // CREATE USER
-
         const user =
             await User.create({
                 firstName,
                 lastName,
-                email,
+                email:
+                    normalizedEmail,
                 password:
                     hashedPassword,
             });
@@ -100,7 +103,6 @@ export class AuthService {
         } = userData;
 
         // VALIDATION
-
         if (
             !email ||
             !password
@@ -112,10 +114,13 @@ export class AuthService {
         }
 
         // FIND USER
+         const normalizedEmail =
+            email.trim().toLowerCase();
 
         const user =
             await User.findOne({
-                email,
+                email:
+                    normalizedEmail,
             });
 
         if (!user) {

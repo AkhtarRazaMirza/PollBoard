@@ -1,4 +1,5 @@
 import { ApiError } from "../utils/error.js";
+import { ZodError } from "zod";
 
 export const notFoundMiddleware = (
   req,
@@ -36,6 +37,17 @@ export const errorHandlerMiddleware = (
         )
       );
   } else if (
+    error instanceof ZodError
+  ) {
+    normalizedError =
+      ApiError.validationError(
+        "Validation failed",
+        error.issues.map(
+          (issue) =>
+            issue.message
+        )
+      );
+  } else if (
     error?.name === "CastError"
   ) {
     normalizedError =
@@ -43,9 +55,18 @@ export const errorHandlerMiddleware = (
         "Invalid request data"
       );
   } else if (error?.code === 11000) {
+    const duplicateMessage =
+      error?.keyPattern
+        ?.respondent
+        ? "You have already voted in this poll"
+        : error
+          ?.keyPattern
+          ?.anonymousVoterHash
+          ? "This device has already voted in this poll"
+          : "A record with this value already exists";
     normalizedError =
       ApiError.conflict(
-        "A record with this value already exists"
+        duplicateMessage
       );
   } else if (
     !(error instanceof ApiError)

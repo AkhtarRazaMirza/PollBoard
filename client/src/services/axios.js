@@ -13,7 +13,8 @@ export const socketBaseURL =
   import.meta.env.VITE_SOCKET_URL ||
   apiBaseUrl.replace(/\/api\/?$/, "");
 
-export const getStoredToken = () => localStorage.getItem(storageKeys.token);
+export const getStoredToken = () =>
+  localStorage.getItem(storageKeys.token);
 
 export const getStoredUser = () => {
   const storedUser = localStorage.getItem(storageKeys.user);
@@ -56,6 +57,10 @@ export const getApiErrorMessage = (error) => {
     return responseData;
   }
 
+  if (Array.isArray(responseData?.errors) && responseData.errors.length > 0) {
+    return responseData.errors[0];
+  }
+
   return (
     responseData?.message ||
     responseData?.error ||
@@ -64,6 +69,20 @@ export const getApiErrorMessage = (error) => {
     "Something went wrong. Please try again."
   );
 };
+
+function buildApiError(error) {
+  const responseData = error.response?.data;
+  const nextError = new Error(getApiErrorMessage(error));
+
+  nextError.statusCode =
+    responseData?.statusCode || error.response?.status || 500;
+  nextError.errors = Array.isArray(responseData?.errors)
+    ? responseData.errors
+    : [];
+  nextError.response = error.response;
+
+  return nextError;
+}
 
 const api = axios.create({
   baseURL: apiBaseUrl,
@@ -90,7 +109,7 @@ api.interceptors.response.use(
       window.dispatchEvent(new CustomEvent("pollboard:auth-expired"));
     }
 
-    return Promise.reject(new Error(getApiErrorMessage(error)));
+    return Promise.reject(buildApiError(error));
   },
 );
 

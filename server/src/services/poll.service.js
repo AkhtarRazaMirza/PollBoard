@@ -1,53 +1,20 @@
 import mongoose from "mongoose";
 
-import { Response } from "../models/response.models.js";
 import { Poll } from "../models/poll.models.js";
+import { Response } from "../models/response.models.js";
+import {
+    buildPollResultsPayload,
+    buildResponseCountMap,
+    getQuestionRequiredFlag,
+    getVoteAccess,
+    isPollExpired,
+    serializePoll,
+    voteAccessTypes,
+} from "./poll-analytics.service.js";
 import { ApiError } from "../utils/error.js";
-
-const voteAccessTypes = {
-    anonymous: "anonymous",
-    authenticated: "authenticated",
-};
-
-const getVoteAccess = (poll) =>
-    poll?.voteAccess ||
-    (poll?.isAnonymous
-        ? voteAccessTypes.anonymous
-        : voteAccessTypes.authenticated);
-
-const getQuestionRequiredFlag = (
-    question
-) => {
-    if (
-        typeof question?.required ===
-        "boolean"
-    ) {
-        return question.required;
-    }
-
-    if (
-        typeof question?.isRequired ===
-        "boolean"
-    ) {
-        return question.isRequired;
-    }
-
-    return true;
-};
-
-const isPollExpired = (poll) =>
-    Boolean(
-        poll?.expiresAt &&
-            new Date(poll.expiresAt) <
-                new Date()
-    );
-
-const isPollClosed = (poll) =>
-    Boolean(
-        poll?.isClosed ||
-            poll?.resultsPublished ||
-            isPollExpired(poll)
-    );
+import {
+    hashAnonymousVoterToken,
+} from "../utils/voter.js";
 
 const normalizeExpiryDate = (
     value
@@ -200,131 +167,6 @@ const validateQuestions = (
     }
 };
 
-const serializeQuestions = (
-    questions = []
-) =>
-    questions.map(
-        (question) => ({
-            ...question,
-            required:
-                getQuestionRequiredFlag(
-                    question
-                ),
-            isRequired:
-                getQuestionRequiredFlag(
-                    question
-                ),
-        })
-    );
-
-const serializePoll = (
-    poll,
-    {
-        requesterId = null,
-        responseCount = 0,
-    } = {}
-) => {
-    const pollObject =
-        typeof poll?.toObject ===
-        "function"
-            ? poll.toObject({
-                  virtuals: true,
-              })
-            : { ...poll };
-
-    const voteAccess =
-        getVoteAccess(pollObject);
-    const isExpired =
-        isPollExpired(pollObject);
-    const resultsPublished =
-        Boolean(
-            pollObject.resultsPublished ||
-                pollObject.isPublished
-        );
-    const creatorId =
-        pollObject?.creator?._id ||
-        pollObject?.creator;
-    const isOwner = Boolean(
-        requesterId &&
-            creatorId &&
-            String(creatorId) ===
-                String(requesterId)
-    );
-
-    return {
-        ...pollObject,
-        voteAccess,
-        isAnonymous:
-            voteAccess ===
-            voteAccessTypes.anonymous,
-        resultsPublished,
-        isPublished:
-            resultsPublished,
-        isClosed:
-            isPollClosed({
-                ...pollObject,
-                resultsPublished,
-                isExpired,
-            }),
-        isExpired,
-        responseCount,
-        totalVotes: responseCount,
-        canVote:
-            !isPollClosed({
-                ...pollObject,
-                resultsPublished,
-                isExpired,
-            }),
-        isOwner,
-        canViewResults:
-            resultsPublished || isOwner,
-        canPublishResults:
-            isOwner && !resultsPublished,
-        questions:
-            serializeQuestions(
-                pollObject.questions
-            ),
-    };
-};
-
-const buildResponseCountMap =
-    async (pollIds) => {
-        if (
-            !Array.isArray(pollIds) ||
-            pollIds.length === 0
-        ) {
-            return new Map();
-        }
-
-        const aggregatedCounts =
-            await Response.aggregate([
-                {
-                    $match: {
-                        poll: {
-                            $in: pollIds,
-                        },
-                    },
-                },
-                {
-                    $group: {
-                        _id: "$poll",
-                        count: {
-                            $sum: 1,
-                        },
-                    },
-                },
-            ]);
-
-        return new Map(
-            aggregatedCounts.map(
-                (item) => [
-                    String(item._id),
-                    item.count,
-                ]
-            )
-        );
-    };
-
 class PollService {
     static validatePollId(
         pollId
@@ -400,6 +242,30 @@ class PollService {
         return poll;
     }
 
+    static ensurePollCanReceiveVotes(
+        poll
+    ) {
+        if (
+            poll.resultsPublished
+        ) {
+            throw ApiError.badRequest(
+                "Results are already published and this poll is closed"
+            );
+        }
+
+        if (isPollExpired(poll)) {
+            throw ApiError.badRequest(
+                "Poll has expired"
+            );
+        }
+
+        if (poll.isClosed) {
+            throw ApiError.badRequest(
+                "Poll is closed"
+            );
+        }
+    }
+
     static validateAnswers(
         poll,
         answers
@@ -423,7 +289,6 @@ class PollService {
                     ]
                 )
             );
-
         const validationErrors = [];
         const answeredQuestionIds =
             new Set();
@@ -443,7 +308,6 @@ class PollService {
                         answer?.answer ||
                         ""
                     ).trim();
-
                 const question =
                     questionMap.get(
                         questionId
@@ -548,6 +412,7 @@ class PollService {
         {
             requesterId = null,
             bypassAccessCheck = false,
+            viewerCount = null,
         } = {}
     ) {
         const responses =
@@ -555,155 +420,21 @@ class PollService {
                 poll: poll._id,
             }).lean();
 
-        const totalVotes =
-            responses.length;
-        const serializedPoll =
-            serializePoll(poll, {
-                requesterId,
-                responseCount: totalVotes,
-            });
-
-        if (
-            !bypassAccessCheck &&
-            !serializedPoll.canViewResults
-        ) {
-            throw ApiError.forbidden(
-                "Results are private until the creator publishes them"
-            );
-        }
-
-        const results =
-            serializedPoll.questions.map(
-                (question) => {
-                    const optionCounts =
-                        {};
-
-                    question.options.forEach(
-                        (option) => {
-                            optionCounts[
-                                option
-                            ] = 0;
-                        }
-                    );
-
-                    responses.forEach(
-                        (response) => {
-                            response.answers.forEach(
-                                (answer) => {
-                                    if (
-                                        String(
-                                            answer.questionId
-                                        ) ===
-                                        String(
-                                            question._id
-                                        )
-                                    ) {
-                                        optionCounts[
-                                            answer.selectedOption
-                                        ] =
-                                            (optionCounts[
-                                                answer.selectedOption
-                                            ] ||
-                                                0) +
-                                            1;
-                                    }
-                                }
-                            );
-                        }
-                    );
-
-                    const questionTotalVotes =
-                        Object.values(
-                            optionCounts
-                        ).reduce(
-                            (
-                                total,
-                                currentValue
-                            ) =>
-                                total +
-                                Number(
-                                    currentValue
-                                ),
-                            0
-                        );
-
-                    return {
-                        questionId:
-                            question._id,
-                        question:
-                            question.questionText,
-                        required:
-                            getQuestionRequiredFlag(
-                                question
-                            ),
-                        totalVotes:
-                            questionTotalVotes,
-                        results:
-                            optionCounts,
-                        options:
-                            Object.entries(
-                                optionCounts
-                            ).map(
-                                ([
-                                    label,
-                                    votes,
-                                ]) => ({
-                                    label,
-                                    votes,
-                                    percentage:
-                                        questionTotalVotes >
-                                        0
-                                            ? Math.round(
-                                                  (Number(
-                                                      votes
-                                                  ) /
-                                                      questionTotalVotes) *
-                                                      100
-                                              )
-                                            : 0,
-                                })
-                            ),
-                    };
-                }
-            );
-
-        return {
-            pollId:
-                serializedPoll._id,
-            pollTitle:
-                serializedPoll.pollTitle,
-            pollDescription:
-                serializedPoll.pollDescription ||
-                "",
-            totalVotes,
-            totalResponses:
-                totalVotes,
-            voteAccess:
-                serializedPoll.voteAccess,
-            isAnonymous:
-                serializedPoll.isAnonymous,
-            isClosed:
-                serializedPoll.isClosed,
-            isExpired:
-                serializedPoll.isExpired,
-            expiresAt:
-                serializedPoll.expiresAt ||
-                null,
-            resultsPublished:
-                serializedPoll.resultsPublished,
-            canViewResults:
-                serializedPoll.canViewResults,
-            canPublishResults:
-                serializedPoll.canPublishResults,
-            results,
-        };
+        return buildPollResultsPayload({
+            poll,
+            responses,
+            requesterId,
+            bypassAccessCheck,
+            viewerCount,
+        });
     }
 
-    // create poll
     static async createPoll(data) {
         const {
             pollTitle,
+            title,
             pollDescription,
+            description,
             questions,
             isAnonymous,
             voteAccess,
@@ -718,7 +449,10 @@ class PollService {
             );
         }
 
-        if (!pollTitle?.trim()) {
+        const resolvedTitle =
+            pollTitle || title || "";
+
+        if (!resolvedTitle.trim()) {
             throw ApiError.badRequest(
                 "Poll title is required"
             );
@@ -728,6 +462,7 @@ class PollService {
             normalizeQuestions(
                 questions || []
             );
+
         validateQuestions(
             normalizedQuestions
         );
@@ -741,10 +476,13 @@ class PollService {
         const poll =
             await Poll.create({
                 pollTitle:
-                    pollTitle.trim(),
+                    resolvedTitle.trim(),
                 pollDescription:
-                    pollDescription?.trim() ||
-                    "",
+                    (
+                        pollDescription ||
+                        description ||
+                        ""
+                    ).trim(),
                 creator,
                 questions:
                     normalizedQuestions,
@@ -770,7 +508,6 @@ class PollService {
         });
     }
 
-    // get user polls
     static async getUserPolls(
         userId
     ) {
@@ -788,7 +525,6 @@ class PollService {
                     createdAt: -1,
                 })
                 .lean();
-
         const responseCountMap =
             await buildResponseCountMap(
                 polls.map(
@@ -807,7 +543,6 @@ class PollService {
         );
     }
 
-    // get recent polls
     static async getRecentPolls(
         limit = 6
     ) {
@@ -819,7 +554,6 @@ class PollService {
                 ),
                 12
             );
-
         const polls =
             await Poll.find({})
                 .sort({
@@ -827,7 +561,6 @@ class PollService {
                 })
                 .limit(normalizedLimit)
                 .lean();
-
         const responseCountMap =
             await buildResponseCountMap(
                 polls.map(
@@ -845,7 +578,6 @@ class PollService {
         );
     }
 
-    // get poll by id
     static async getPollById(
         pollId,
         requesterId = null
@@ -857,7 +589,6 @@ class PollService {
                     populateCreator: true,
                 }
             );
-
         const responseCount =
             await Response.countDocuments({
                 poll: poll._id,
@@ -869,39 +600,22 @@ class PollService {
         });
     }
 
-    // vote poll
     static async votePoll(data) {
         const {
             pollId,
             userId,
             body,
+            anonymousVoterToken,
         } = data;
         const { answers } = body;
-
         const poll =
             await this.getPollDocument(
                 pollId
             );
 
-        if (
-            poll.resultsPublished
-        ) {
-            throw ApiError.badRequest(
-                "Results are already published and this poll is closed"
-            );
-        }
-
-        if (isPollExpired(poll)) {
-            throw ApiError.badRequest(
-                "Poll has expired"
-            );
-        }
-
-        if (poll.isClosed) {
-            throw ApiError.badRequest(
-                "Poll is closed"
-            );
-        }
+        this.ensurePollCanReceiveVotes(
+            poll
+        );
 
         const pollVoteAccess =
             getVoteAccess(poll);
@@ -921,32 +635,72 @@ class PollService {
                 poll,
                 answers
             );
+        const anonymousVoterHash =
+            pollVoteAccess ===
+            voteAccessTypes.anonymous
+                ? hashAnonymousVoterToken(
+                      anonymousVoterToken
+                  )
+                : null;
 
         if (userId) {
             const alreadyVoted =
                 await Response.findOne({
                     poll: pollId,
                     respondent: userId,
-                });
+                }).lean();
 
             if (alreadyVoted) {
                 throw ApiError.conflict(
                     "You have already voted in this poll"
                 );
             }
+        } else if (
+            anonymousVoterHash
+        ) {
+            const alreadyVoted =
+                await Response.findOne({
+                    poll: pollId,
+                    anonymousVoterHash,
+                }).lean();
+
+            if (alreadyVoted) {
+                throw ApiError.conflict(
+                    "This device has already voted in this poll"
+                );
+            }
         }
 
-        const response =
-            await Response.create({
-                poll: pollId,
-                respondent:
-                    pollVoteAccess ===
-                    voteAccessTypes.authenticated
-                        ? userId
-                        : null,
-                answers:
-                    normalizedAnswers,
-            });
+        let response;
+
+        try {
+            response =
+                await Response.create({
+                    poll: pollId,
+                    respondent:
+                        pollVoteAccess ===
+                        voteAccessTypes.authenticated
+                            ? userId
+                            : null,
+                    anonymousVoterHash,
+                    submissionType:
+                        pollVoteAccess,
+                    answers:
+                        normalizedAnswers,
+                });
+        } catch (error) {
+            if (
+                error?.code === 11000
+            ) {
+                throw ApiError.conflict(
+                    anonymousVoterHash
+                        ? "This device has already voted in this poll"
+                        : "You have already voted in this poll"
+                );
+            }
+
+            throw error;
+        }
 
         const results =
             await this.buildPollResults(
@@ -971,7 +725,6 @@ class PollService {
         };
     }
 
-    // get poll results
     static async getPollResults(
         pollId,
         requesterId = null
@@ -989,7 +742,6 @@ class PollService {
         );
     }
 
-    // publish results
     static async publishPollResults(
         {
             pollId,

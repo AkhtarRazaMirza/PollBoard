@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Toaster, toast } from "react-hot-toast";
 import AppRoutes from "./routes/AppRoutes";
 import api, {
   clearAuthSession,
@@ -7,37 +8,53 @@ import api, {
   saveAuthSession,
 } from "./services/axios";
 
-const notificationStyles = {
-  success: "border-green-200 bg-green-50 text-green-800",
-  error: "border-red-200 bg-red-50 text-red-800",
-  info: "border-blue-200 bg-blue-50 text-blue-800",
+const toasterOptions = {
+  duration: 3200,
+  style: {
+    border: "1px solid #e5e7eb",
+    borderRadius: "14px",
+    padding: "14px 16px",
+    color: "#111827",
+    boxShadow: "0 14px 32px rgba(15, 23, 42, 0.10)",
+  },
+  success: {
+    iconTheme: {
+      primary: "#166534",
+      secondary: "#ecfdf5",
+    },
+  },
+  error: {
+    iconTheme: {
+      primary: "#b91c1c",
+      secondary: "#fef2f2",
+    },
+  },
 };
-
-function ToastMessage({ notification }) {
-  if (!notification) {
-    return null;
-  }
-
-  return (
-    <div className="pointer-events-none fixed left-1/2 top-4 z-50 w-full max-w-sm -translate-x-1/2 px-4">
-      <div
-        className={`pointer-events-auto rounded-lg border px-4 py-3 text-sm shadow-soft ${
-          notificationStyles[notification.type] || notificationStyles.info
-        }`}
-      >
-        {notification.message}
-      </div>
-    </div>
-  );
-}
 
 export default function App() {
   const [authToken, setAuthToken] = useState(getStoredToken());
   const [currentUser, setCurrentUser] = useState(getStoredUser());
-  const [notification, setNotification] = useState(null);
 
   const showNotification = (message, type = "info") => {
-    setNotification({ message, type });
+    const resolvedMessage = Array.isArray(message)
+      ? message[0]
+      : message;
+
+    if (!resolvedMessage) {
+      return;
+    }
+
+    if (type === "success") {
+      toast.success(resolvedMessage);
+      return;
+    }
+
+    if (type === "error") {
+      toast.error(resolvedMessage);
+      return;
+    }
+
+    toast(resolvedMessage);
   };
 
   const updateAuthSession = ({ token, user, message }) => {
@@ -55,8 +72,8 @@ export default function App() {
       if (authToken) {
         await api.post("/auth/logout");
       }
-       } catch {
-      // A missing logout endpoint should not block the user from leaving the session.
+    } catch {
+      // Keep logout resilient even if the request fails.
     } finally {
       clearAuthSession();
       setAuthToken(null);
@@ -67,18 +84,6 @@ export default function App() {
       }
     }
   };
-
-  useEffect(() => {
-    if (!notification) {
-      return undefined;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setNotification(null);
-    }, 3200);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [notification]);
 
   useEffect(() => {
     const handleAuthExpired = () => {
@@ -97,7 +102,7 @@ export default function App() {
 
   return (
     <>
-      <ToastMessage notification={notification} />
+      <Toaster position="top-center" toastOptions={toasterOptions} />
       <AppRoutes
         authToken={authToken}
         currentUser={currentUser}

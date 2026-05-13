@@ -1,48 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { io } from "socket.io-client";
+import AnalyticsWorkspace from "../components/AnalyticsWorkspace";
 import EmptyState from "../components/EmptyState";
 import Navbar from "../components/Navbar";
 import SkeletonCard from "../components/SkeletonCard";
-import api, { socketBaseURL } from "../services/axios";
-
-function normalizeResults(payload) {
-  const source = payload?.data || payload;
-  const questionSource = source?.results || [];
-
-  return {
-    title: source?.pollTitle || "Poll results",
-    description: source?.pollDescription || "",
-    totalVotes: Number(source?.totalVotes || 0),
-    voteAccess:
-      source?.voteAccess ||
-      (source?.isAnonymous ? "anonymous" : "authenticated"),
-    resultsPublished: Boolean(source?.resultsPublished || source?.isPublished),
-    canPublishResults: Boolean(source?.canPublishResults),
-    canViewResults: Boolean(source?.canViewResults ?? true),
-    isClosed: Boolean(source?.isClosed),
-    isExpired: Boolean(source?.isExpired),
-    expiresAt: source?.expiresAt || null,
-    questions: questionSource.map((question, questionIndex) => {
-      const options = (question.options || []).map((option, optionIndex) => ({
-        id: `option-${questionIndex}-${optionIndex}`,
-        label: option.label,
-        votes: Number(option.votes || 0),
-        percentage: Number(option.percentage || 0),
-      }));
-
-      const questionVotes = options.reduce((sum, option) => sum + option.votes, 0);
-
-      return {
-        id: question.questionId || `question-${questionIndex}`,
-        prompt: question.question || `Question ${questionIndex + 1}`,
-        required: Boolean(question.required),
-        options,
-        totalVotes: question.totalVotes ?? questionVotes,
-      };
-    }),
-  };
-}
+import usePollSocket from "../hooks/usePollSocket";
+import api from "../services/axios";
+import {
+  exportAnalyticsCsv,
+  normalizeAnalytics,
+  printAnalytics,
+} from "../utils/analytics";
+import { formatDateTime } from "../utils/polls";
 
 export default function ResultsPage({
   authToken,
@@ -55,58 +24,78 @@ export default function ResultsPage({
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [isPublishing, setIsPublishing] = useState(false);
+  const [selectedQuestionId, setSelectedQuestionId] = useState("");
+
+ const applyResultsState = (nextResults) => {
+    setResults(nextResults);
+    setSelectedQuestionId((previousQuestionId) => {
+      if (nextResults?.questions.some((question) => question.id === previousQuestionId)) {
+        return previousQuestionId;
+      }
+
+      return nextResults?.questions[0]?.id || "";
+    });
+  };
+
 
   useEffect(() => {
+    let isActive = true;
+
     const fetchResults = async () => {
       setIsLoading(true);
       setErrorMessage("");
 
       try {
         const response = await api.get(`/polls/${id}/results`);
-        setResults(normalizeResults(response.data));
+        const nextResults = normalizeAnalytics(response.data);
+
+        if (isActive) {
+          applyResultsState(nextResults);
+        }
       } catch (error) {
-        setErrorMessage(error.message || "Could not load poll results.");
+        if (isActive) {
+          setErrorMessage(error.message || "Could not load poll results.");
+        }
       } finally {
-        setIsLoading(false);
+        if (isActive) {
+          setIsLoading(false);
+        }
       }
     };
 
-    fetchResults();
-  }, [id]);
-
-  useEffect(() => {
-    if (!results?.canViewResults) {
-      return undefined;
-    }
-
-    const socket = io(socketBaseURL, {
-      transports: ["websocket"],
-    });
-
-    socket.emit("poll:join", id);
-
-    socket.on("poll:results-updated", (payload) => {
-      if (payload?.pollId !== id || !payload?.results) {
-        return;
-      }
-
-      setResults(normalizeResults(payload.results));
-    });
+    void fetchResults();
 
     return () => {
-      socket.emit("poll:leave", id);
-      socket.disconnect();
+      isActive = false;
     };
-  }, [id, results?.canViewResults]);
+  }, [id]);
+
+  usePollSocket({
+    pollId: id,
+    enabled: Boolean(results?.canViewResults),
+    onResultsUpdated: (payload) => {
+     applyResultsState(normalizeAnalytics(payload.results));
+    },
+    onPresenceUpdated: ({ viewerCount }) => {
+      setResults((previousResults) =>
+        previousResults
+          ? {
+              ...previousResults,
+              viewerCount: Number(viewerCount || 0),
+            }
+          : previousResults,
+      );
+    },
+  });
 
   const publishResults = async () => {
     setIsPublishing(true);
 
     try {
-      const response = await api.patch(`/polls/${id}/publish`);
-      const nextResults = normalizeResults(response.data?.data?.results || response.data?.data);
+      const response = await api.patch(`/polls/${id}/publish`, {});
+      const nextResults = normalizeAnalytics(response.data?.data?.results || response.data?.data);
 
-      setResults(nextResults);
+       applyResultsState(nextResults);
       showNotification("Results published successfully.", "success");
     } catch (error) {
       showNotification(error.message || "Could not publish results.", "error");
@@ -128,7 +117,7 @@ export default function ResultsPage({
         ]}
       />
 
-      <main className="mx-auto max-w-5xl px-4 py-8 md:px-6">
+      <main className="mx-auto max-w-6xl px-4 py-8 md:px-6">
         {isLoading ? (
           <div className="space-y-4 py-6">
             <SkeletonCard lines={2} />
@@ -152,101 +141,51 @@ export default function ResultsPage({
         ) : (
           <div className="space-y-6">
             <section className="panel p-6">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <h1 className="text-2xl font-semibold text-gray-900">{results.title}</h1>
-                  <p className="mt-2 text-sm leading-6 text-gray-600">
-                    {results.description || "A simple breakdown of how people answered."}
+                  <p className="mt-2 max-w-3xl text-sm leading-6 text-gray-600">
+                    {results.description || "A clear breakdown of how respondents answered."}
                   </p>
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium uppercase tracking-[0.12em] text-gray-500">
+
+                  <div className="mt-4 flex flex-wrap gap-2 text-xs font-medium uppercase tracking-[0.14em] text-gray-500">
                     <span>
                       {results.voteAccess === "authenticated"
                         ? "Login required"
                         : "Anonymous voting"}
                     </span>
                     <span>{results.resultsPublished ? "Public results" : "Private results"}</span>
+                    <span>Expires {formatDateTime(results.expiresAt)}</span>
                   </div>
                 </div>
 
-                <div className="rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-600">
-                  <p className="font-medium text-gray-900">{results.totalVotes} total votes</p>
+                <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 text-sm text-gray-600">
+                  <p className="font-medium text-gray-900">{results.totalResponses} total responses</p>
+                  <p className="mt-1">Live viewers: {results.viewerCount}</p>
                   <p className="mt-1">
                     {results.resultsPublished
-                      ? "Updated live for everyone viewing this poll."
-                      : "Only the creator can see these analytics right now."}
+                      ? "This dashboard is now public for anyone with the link."
+                      : "Only the creator can see this dashboard right now."}
                   </p>
                 </div>
               </div>
 
-              {results.canPublishResults ? (
-                <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-blue-900">Creator controls</p>
-                      <p className="mt-1 text-sm text-blue-800">
-                        Publish results when you are ready. This will make analytics public
-                        and close the poll for further voting.
-                      </p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={publishResults}
-                      disabled={isPublishing}
-                      className="btn-primary"
-                    >
-                      {isPublishing ? "Publishing..." : "Publish Results"}
-                    </button>
-                  </div>
-                </div>
-              ) : null}
+              <div className="mt-5 flex flex-wrap gap-3 print-hidden">
+                <Link to={`/poll/${id}`} className="btn-secondary">
+                  Open poll page
+                </Link>
+              </div>
             </section>
 
-            {results.questions.length === 0 ? (
-              <EmptyState
-                title="No answers yet"
-                description="Responses will show up here as votes come in."
-                actionLabel="Back to poll"
-                actionTo={`/poll/${id}`}
-              />
-            ) : (
-              results.questions.map((question, questionIndex) => (
-                <section key={question.id} className="panel p-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h2 className="text-base font-semibold text-gray-900">
-                        {questionIndex + 1}. {question.prompt}
-                      </h2>
-                      <p className="mt-1 text-sm text-gray-500">
-                        {question.totalVotes} votes for this question
-                      </p>
-                    </div>
-                    <Link to={`/poll/${id}`} className="text-link">
-                      Back to poll
-                    </Link>
-                  </div>
-
-                  <div className="mt-5 space-y-4">
-                    {question.options.map((option) => (
-                      <div key={option.id}>
-                        <div className="mb-2 flex items-center justify-between gap-4 text-sm">
-                          <span className="text-gray-700">{option.label}</span>
-                          <span className="font-medium text-gray-900">
-                            {option.votes} votes ({option.percentage}%)
-                          </span>
-                        </div>
-                        <div className="h-3 rounded-full bg-gray-100">
-                          <div
-                            className="h-3 rounded-full bg-blue-600 transition-all duration-200"
-                            style={{ width: `${option.percentage}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              ))
-            )}
+            <AnalyticsWorkspace
+              analytics={results}
+              selectedQuestionId={selectedQuestionId}
+              onSelectedQuestionIdChange={setSelectedQuestionId}
+              onExportCsv={() => exportAnalyticsCsv(results)}
+              onPrint={printAnalytics}
+              onPublish={publishResults}
+              isPublishing={isPublishing}
+            />
           </div>
         )}
       </main>

@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import QuestionBlock from "../components/QuestionBlock";
 import api from "../services/axios";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 function createLocalId(prefix) {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
@@ -115,9 +117,9 @@ export default function CreatePollPage({ showNotification }) {
       questions: previousValues.questions.map((question) =>
         question.id === questionId
           ? {
-              ...question,
-              [fieldName]: value,
-            }
+            ...question,
+            [fieldName]: value,
+          }
           : question,
       ),
     }));
@@ -129,16 +131,16 @@ export default function CreatePollPage({ showNotification }) {
       questions: previousValues.questions.map((question) =>
         question.id === questionId
           ? {
-              ...question,
-              options: question.options.map((option) =>
-                option.id === optionId
-                  ? {
-                      ...option,
-                      text: value,
-                    }
-                  : option,
-              ),
-            }
+            ...question,
+            options: question.options.map((option) =>
+              option.id === optionId
+                ? {
+                  ...option,
+                  text: value,
+                }
+                : option,
+            ),
+          }
           : question,
       ),
     }));
@@ -164,9 +166,9 @@ export default function CreatePollPage({ showNotification }) {
       questions: previousValues.questions.map((question) =>
         question.id === questionId
           ? {
-              ...question,
-              options: [...question.options, createOption()],
-            }
+            ...question,
+            options: [...question.options, createOption()],
+          }
           : question,
       ),
     }));
@@ -178,12 +180,12 @@ export default function CreatePollPage({ showNotification }) {
       questions: previousValues.questions.map((question) =>
         question.id === questionId
           ? {
-              ...question,
-              options:
-                question.options.length <= 2
-                  ? question.options
-                  : question.options.filter((option) => option.id !== optionId),
-            }
+            ...question,
+            options:
+              question.options.length <= 2
+                ? question.options
+                : question.options.filter((option) => option.id !== optionId),
+          }
           : question,
       ),
     }));
@@ -216,8 +218,10 @@ export default function CreatePollPage({ showNotification }) {
           required: question.required,
           isRequired: question.required,
           options: question.options
-            .map((option) => option.text.trim())
-            .filter(Boolean),
+            .filter((option) => option.text.trim())
+            .map((option) => ({
+              text: option.text.trim(),
+            })),
         })),
       };
 
@@ -225,7 +229,11 @@ export default function CreatePollPage({ showNotification }) {
       showNotification("Poll created successfully.", "success");
       navigate("/dashboard");
     } catch (error) {
-      showNotification(error.message || "Could not create poll.", "error");
+      console.log(error.response?.data);
+      showNotification(
+        error.response?.data?.message || "Could not create poll.",
+        "error"
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -315,11 +323,10 @@ export default function CreatePollPage({ showNotification }) {
                 ].map((option) => (
                   <label
                     key={option.value}
-                    className={`cursor-pointer rounded-xl border px-4 py-3 transition-all duration-200 ${
-                      formValues.voteAccess === option.value
-                        ? "border-blue-300 bg-blue-50"
-                        : "border-gray-200 bg-white hover:border-gray-300"
-                    }`}
+                    className={`cursor-pointer rounded-xl border px-4 py-3 transition-all duration-200 ${formValues.voteAccess === option.value
+                      ? "border-blue-300 bg-blue-50"
+                      : "border-gray-200 bg-white hover:border-gray-300"
+                      }`}
                   >
                     <div className="flex items-start gap-3">
                       <input
@@ -348,11 +355,24 @@ export default function CreatePollPage({ showNotification }) {
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Expiry date
               </label>
-              <input
-                type="datetime-local"
-                value={formValues.expiresAt}
-                onChange={(event) => updateField("expiresAt", event.target.value)}
-                className="field"
+              <DatePicker
+                selected={
+                  formValues.expiresAt
+                    ? new Date(formValues.expiresAt)
+                    : null
+                }
+                onChange={(date) =>
+                  updateField(
+                    "expiresAt",
+                    date ? date.toISOString() : ""
+                  )
+                }
+                showTimeSelect
+                timeFormat="hh:mm aa"
+                timeIntervals={15}
+                dateFormat="MMMM d, yyyy h:mm aa"
+                placeholderText="Select expiry date"
+                className="field w-full"
               />
               {submitAttempted && validation.expiry ? (
                 <p className="mt-2 text-sm text-red-600">{validation.expiry}</p>

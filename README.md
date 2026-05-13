@@ -1,38 +1,167 @@
 # PollBoard
 
-PollBoard is a MERN-based realtime polling platform for classrooms, student teams, demos, and small communities. It lets creators build polls with multiple questions, control who can vote, publish results when ready, and follow live analytics as responses come in.
+PollBoard is a production-style MERN polling platform for classrooms, student teams, demo days, clubs, and hackathons. Creators can build multi-question polls, control who can vote, watch live analytics update in real time, and publish results when they are ready.
 
-## Features
+## Highlights
 
-- JWT authentication with signup, login, current-user lookup, and logout
-- Multi-question poll creation with dynamic options
-- Required and optional questions
+- JWT authentication with signup, login, protected routes, current-user lookup, and logout
+- Multi-question poll builder with required and optional questions
 - Anonymous or authenticated voting modes
-- Poll expiry and manual closing support
-- Creator-only private analytics before publishing
-- Public results after publishing
-- Publish Results flow that closes voting automatically
-- Realtime results updates with Socket.IO poll rooms
-- Dashboard analytics with charts and participation summaries
-- Loading, toast, empty, and error states for common flows
+- Poll expiry enforcement on both backend and frontend
+- Published-results workflow that closes voting and exposes public analytics
+- Duplicate submission prevention for authenticated users and anonymous browser/device voters
+- Room-based Socket.IO updates for live analytics, response counts, and viewer presence
+- Responsive analytics workspace with Recharts, export CSV, and print-friendly reporting
+- Zod request validation, centralized API errors, and route-level rate limiting
+- React Hot Toast, motion polish, skeleton states, empty states, and improved mobile navigation
 
-## Tech Stack
+## Stack
 
-- Frontend: React, Vite, React Router DOM, Tailwind CSS, Axios, Recharts, Socket.IO Client
-- Backend: Node.js, Express, MongoDB, Mongoose, JWT, Socket.IO
-- Security: Helmet, CORS, express-rate-limit
+- Frontend: React, Vite, React Router DOM, Tailwind CSS, Axios, Recharts, Socket.IO Client, Framer Motion, React Hot Toast
+- Backend: Node.js, Express, MongoDB, Mongoose, Socket.IO, Zod
+- Security and ops: Helmet, CORS, express-rate-limit, JWT
 
-## Project Structure
+## Architecture
 
 ```text
 PollBoard/
-├── client/
-│   ├── src/
-│   └── .env.example
-├── server/
-│   ├── src/
-│   └── .env.example
-└── README.md
+|-- client/
+|   |-- src/
+|   |   |-- components/
+|   |   |-- hooks/
+|   |   |-- pages/
+|   |   |-- services/
+|   |   `-- utils/
+|   `-- .env.example
+|-- server/
+|   |-- src/
+|   |   |-- config/
+|   |   |-- controllers/
+|   |   |-- middleware/
+|   |   |-- models/
+|   |   |-- routes/
+|   |   |-- services/
+|   |   |-- utils/
+|   |   `-- validators/
+|   `-- .env.example
+`-- README.md
+```
+
+## Core Product Flow
+
+1. A user signs up or logs in.
+2. A creator builds a poll with one or more questions, selects anonymous or authenticated voting, and can optionally set an expiry date.
+3. Respondents open the poll link and submit answers.
+4. The backend validates the payload, checks expiry, checks duplicate votes, stores the response, and emits a room-scoped realtime analytics update.
+5. The creator sees private analytics until they publish results.
+6. After publish, the same `/poll/:id` link becomes a live public results experience, while `/poll/:id/results` remains the dedicated analytics route.
+
+## Realtime Model
+
+PollBoard avoids global broadcasts. Every live view joins a poll-specific room.
+
+- Client event: `poll:join`
+- Client event: `poll:leave`
+- Server event: `poll:results-updated`
+- Server event: `poll:presence-updated`
+- Optional server event: `poll:responded`
+
+Server room pattern:
+
+```js
+socket.join(`poll:${pollId}`);
+io.to(`poll:${pollId}`).emit("poll:results-updated", payload);
+```
+
+This keeps traffic scoped to the poll being viewed and prevents unrelated dashboards from rerendering.
+
+## Analytics Features
+
+- Total responses
+- Question-by-question option counts
+- Participation rate per question
+- Anonymous vs authenticated response split
+- Response trend buckets
+- Most selected option
+- Least selected option
+- Live viewer count for active poll rooms
+- CSV export
+- Print-friendly analytics layout
+
+## API Overview
+
+### Auth
+
+- `POST /api/auth/signup`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `POST /api/auth/logout`
+
+### Polls
+
+- `GET /api/polls/recent`
+- `GET /api/polls`
+- `GET /api/polls/my-polls` `auth required`
+- `POST /api/polls` `auth required`
+- `GET /api/polls/:pollId`
+- `POST /api/polls/:pollId/vote`
+- `GET /api/polls/:pollId/results`
+- `PATCH /api/polls/:pollId/publish` `owner only`
+
+### Response Envelope
+
+The backend keeps a shared response shape:
+
+- `success`
+- `statusCode`
+- `message`
+- `data`
+
+## Anonymous Vote Protection
+
+Anonymous polls use a browser/device token to reduce duplicate voting.
+
+- The client stores a stable token in `localStorage`
+- Vote submissions send it in the `x-pollboard-voter-token` header
+- The backend hashes the token before persistence
+- A unique MongoDB partial index prevents duplicate anonymous responses per poll
+
+This is intentionally browser/device scoped, not cross-device identity proofing.
+
+## Environment Variables
+
+### Server
+
+```env
+PORT=8080
+MONGO_URI=mongodb+srv://<username>:<password>@<cluster-url>/pollboard
+
+# Preferred JWT names
+JWT_ACCESS_SECRET=replace_me
+JWT_REFRESH_SECRET=replace_me
+JWT_ACCESS_EXPIRES_IN=15m
+JWT_REFRESH_EXPIRES_IN=7d
+
+# Backward-compatible aliases still supported
+# ACCESS_TOKEN_SECRET=replace_me
+# REFRESH_TOKEN_SECRET=replace_me
+# ACCESS_TOKEN_EXPIRES_IN=15m
+# REFRESH_TOKEN_EXPIRES_IN=7d
+
+CLIENT_URL=http://localhost:5173
+# Or comma-separated:
+# CLIENT_URLS=http://localhost:5173,http://127.0.0.1:5173
+
+RATE_LIMIT_MAX=200
+AUTH_RATE_LIMIT_MAX=20
+VOTE_RATE_LIMIT_MAX=60
+```
+
+### Client
+
+```env
+VITE_API_BASE_URL=http://localhost:8080/api
+VITE_SOCKET_URL=http://localhost:8080
 ```
 
 ## Local Setup
@@ -50,133 +179,55 @@ cd ../client
 npm install
 ```
 
-### 2. Configure environment variables
+### 2. Create environment files
 
-Create `.env` files in both `server/` and `client/` using the included examples.
+Copy `server/.env.example` to `server/.env` and `client/.env.example` to `client/.env`.
 
-Server variables:
-
-```env
-PORT=8080
-MONGO_URI=mongodb+srv://<username>:<password>@<cluster-url>/pollboard
-ACCESS_TOKEN_SECRET=replace_me
-REFRESH_TOKEN_SECRET=replace_me
-CLIENT_URL=http://localhost:5173
-# Or comma-separated:
-# CLIENT_URLS=http://localhost:5173,http://127.0.0.1:5173
-RATE_LIMIT_MAX=200
-```
-
-Client variables:
-
-```env
-VITE_API_BASE_URL=http://localhost:8080/api
-VITE_SOCKET_URL=http://localhost:8080
-```
-
-### 3. Run the apps
-
-Backend:
+### 3. Start the backend
 
 ```bash
 cd server
 npm run dev
 ```
 
-Frontend:
+### 4. Start the frontend
 
 ```bash
 cd client
 npm run dev
 ```
 
-## API Overview
+## Deployment Notes
 
-### Auth
+### Frontend
 
-- `POST /api/auth/signup`
-- `POST /api/auth/login`
-- `GET /api/auth/me`
-- `POST /api/auth/logout`
-
-### Polls
-
-- `GET /api/polls/recent`
-- `GET /api/polls`
-- `GET /api/polls/:pollId`
-- `POST /api/polls` `auth required`
-- `GET /api/polls/my-polls` `auth required`
-- `POST /api/polls/:pollId/vote`
-- `GET /api/polls/:pollId/results`
-- `PATCH /api/polls/:pollId/publish` `owner only`
-
-## Realtime Architecture
-
-Socket.IO traffic is scoped per poll instead of being broadcast globally.
-
-### Flow
-
-1. A client viewing a results page connects to Socket.IO.
-2. The client emits `poll:join` with the poll id.
-3. The server joins that socket to `poll:<pollId>`.
-4. After a vote or publish action, the server emits `poll:results-updated` only to that room.
-5. The client updates the visible analytics and disconnects on unmount.
-
-This keeps live updates focused on the poll that is actually being viewed.
-
-## Poll Rules
-
-- `voteAccess: "anonymous"` allows public voting
-- `voteAccess: "authenticated"` requires a valid JWT
-- Required questions must be answered before a vote is accepted
-- Expired polls reject new votes
-- Closed polls reject new votes
-- Publishing results closes the poll automatically
-- Results stay private until published, except for the creator
-
-## Deployment Guide
-
-### Frontend on Vercel
-
-- Root directory: `client`
 - Build command: `npm run build`
 - Output directory: `dist`
-- Environment variables:
-  - `VITE_API_BASE_URL=https://your-render-api.onrender.com/api`
-  - `VITE_SOCKET_URL=https://your-render-api.onrender.com`
+- Set `VITE_API_BASE_URL` to your deployed backend API
+- Set `VITE_SOCKET_URL` to your deployed backend root
 
-### Backend on Render
+### Backend
 
-- Root directory: `server`
-- Build command: `npm install`
 - Start command: `npm run dev`
-- Environment variables:
-  - `PORT`
-  - `MONGO_URI`
-  - `ACCESS_TOKEN_SECRET`
-  - `REFRESH_TOKEN_SECRET`
-  - `CLIENT_URL` or `CLIENT_URLS`
-  - `RATE_LIMIT_MAX`
+- Configure MongoDB, JWT secrets, allowed client origins, and rate limits
+- Keep WebSocket support enabled on the hosting platform
 
-### Database on MongoDB Atlas
+### MongoDB
 
-- Create a cluster
-- Add a database user
-- Add your Render IP rules or allow trusted access as needed
-- Copy the connection string into `MONGO_URI`
+- Create the cluster and database user
+- Allow access from your deployment environment
+- Add the connection string to `MONGO_URI`
 
-## Screenshots
+## Suggested Screenshots
 
-Add screenshots to these suggested locations when preparing the final submission:
+If you are packaging this for a submission or portfolio entry, capture:
 
 - `docs/screenshots/home.png`
 - `docs/screenshots/create-poll.png`
 - `docs/screenshots/dashboard.png`
-- `docs/screenshots/results.png`
+- `docs/screenshots/published-results.png`
 
-## Verification
-
-Useful commands:
+## Verification Commands
 
 ```bash
 cd server && npm run lint
@@ -186,10 +237,6 @@ cd client && npm run build
 
 ## Notes
 
-- The frontend expects the backend to return the shared API shape:
-  - `success`
-  - `statusCode`
-  - `message`
-  - `data`
-- Results charts use Recharts in the dashboard while the results page keeps a simpler bar layout.
-- CORS and socket origins are environment-driven for easier local and hosted deployments.
+- Poll expiry is enforced lazily on read, vote, and publish actions. No background scheduler is required.
+- Older poll documents remain supported through serializer defaults rather than destructive migrations.
+- The current implementation keeps the existing controller/service route structure and extends it incrementally instead of replacing the architecture.

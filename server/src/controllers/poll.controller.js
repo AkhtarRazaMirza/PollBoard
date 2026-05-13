@@ -1,7 +1,12 @@
 import PollService from "../services/poll.service.js";
 
 import { ApiResponse } from "../utils/responce.js";
-import { getPollRoom } from "../utils/socket.js";
+import {
+    emitPollResultsUpdate,
+} from "../utils/socket.js";
+import {
+    anonymousVoterTokenHeader,
+} from "../utils/voter.js";
 
 class PollController {
     // create poll
@@ -119,23 +124,25 @@ class PollController {
                         req.params.pollId,
                     userId: req.user?._id,
                     body: req.body,
+                    anonymousVoterToken:
+                        req.get(
+                            anonymousVoterTokenHeader
+                        ),
                 });
 
             const io = req.app.get("io");
 
             if (io && vote?.results) {
-                io.to(
-                    getPollRoom(
-                        req.params.pollId
-                    )
-                ).emit(
-                    "poll:results-updated",
+                  emitPollResultsUpdate(
+                    io,
                     {
                         pollId:
                             req.params.pollId,
                         results:
                             vote.results,
                         poll: vote.poll,
+                        emitResponseEvent:
+                            true,
                     }
                 );
             }
@@ -197,12 +204,8 @@ class PollController {
             const io = req.app.get("io");
 
             if (io) {
-                io.to(
-                    getPollRoom(
-                        req.params.pollId
-                    )
-                ).emit(
-                    "poll:results-updated",
+                 emitPollResultsUpdate(
+                    io,
                     {
                         pollId:
                             req.params.pollId,

@@ -5,6 +5,15 @@ from "../controllers/auth.controller.js";
 
 import { authMiddleware }
 from "../middleware/auth.middeleware.js";
+import { authRateLimiter }
+from "../middleware/rate-limit.middleware.js";
+import { validateBody }
+from "../middleware/validation.middleware.js";
+import {
+    loginSchema,
+    signupSchema,
+}
+from "../validators/auth.validators.js";
 
 const router = Router();
 
@@ -13,12 +22,16 @@ const router = Router();
 // Register User
 router.post(
     "/signup",
+    authRateLimiter,
+    validateBody(signupSchema),
     AuthController.register
 );
 
 // Login User
 router.post(
     "/login",
+    authRateLimiter,
+    validateBody(loginSchema),
     AuthController.login
 );
 

@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import EmptyState from "../components/EmptyState";
@@ -5,39 +6,7 @@ import LoadingSpinner from "../components/LoadingSpinner";
 import Navbar from "../components/Navbar";
 import PollCard from "../components/PollCard";
 import api, { requestFirstSuccessful } from "../services/axios";
-
-function extractPollList(payload) {
-  if (Array.isArray(payload)) {
-    return payload;
-  }
-
-  if (Array.isArray(payload?.data?.polls)) {
-    return payload.data.polls;
-  }
-
-  if (Array.isArray(payload?.polls)) {
-    return payload.polls;
-  }
-
-  if (Array.isArray(payload?.data)) {
-    return payload.data;
-  }
-
-  if (Array.isArray(payload?.results)) {
-    return payload.results;
-  }
-
-  return [];
-}
-
-function normalizePolls(payload) {
-  return extractPollList(payload).map((poll, index) => ({
-    ...poll,
-    id: poll.id || poll._id || `poll-${index}`,
-    title: poll.title || poll.pollTitle || "Untitled poll",
-    description: poll.description || poll.pollDescription || "",
-  }));
-}
+import { normalizePolls } from "../utils/polls";
 
 export default function HomePage({ authToken, currentUser, onLogout }) {
   const [recentPolls, setRecentPolls] = useState([]);
@@ -75,25 +44,31 @@ export default function HomePage({ authToken, currentUser, onLogout }) {
         links={
           authToken
             ? [
-              { label: "Recent polls", href: "#recent-polls" },
-              { label: "Dashboard", to: "/dashboard" },
-              { label: "Create poll", to: "/create-poll" },
-            ]
+                { label: "Recent polls", href: "#recent-polls" },
+                { label: "Dashboard", to: "/dashboard" },
+                { label: "Create poll", to: "/create-poll" },
+              ]
             : [{ label: "Recent polls", href: "#recent-polls" }]
         }
       />
 
       <main className="mx-auto max-w-6xl px-4 py-8 md:px-6">
         <section className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_320px]">
-          <div className="panel p-6 sm:p-8">
+          <motion.div
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="panel overflow-hidden p-6 sm:p-8"
+          >
+            <div className="pointer-events-none absolute" />
             <p className="text-sm font-medium text-blue-600">Simple online polling</p>
             <h1 className="mt-3 max-w-2xl text-3xl font-semibold tracking-tight text-gray-900 sm:text-4xl">
-              PollBoard helps you put together clear polls without a lot of setup.
+              PollBoard helps you run clean, shareable polls with live analytics and
+              a calmer voting experience.
             </h1>
             <p className="mt-4 max-w-2xl text-base leading-7 text-gray-600">
-              Build a poll, share the link, and keep results easy to read. It is made
-              for classes, student teams, project demos, and small communities that
-              just need something practical.
+              Build a poll, share the link, and keep the results readable on any
+              screen. It is shaped for student teams, hackathons, demos, and small
+              communities that want something polished without getting complicated.
             </p>
 
             <div className="mt-6 flex flex-wrap gap-3">
@@ -114,10 +89,15 @@ export default function HomePage({ authToken, currentUser, onLogout }) {
                 </a>
               )}
             </div>
-          </div>
+          </motion.div>
 
           <div className="space-y-4">
-            <div className="panel p-5">
+            <motion.div
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.05 }}
+              className="panel p-5"
+            >
               <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-gray-500">
                 Why people use it
               </h2>
@@ -127,17 +107,22 @@ export default function HomePage({ authToken, currentUser, onLogout }) {
                   <p className="mt-1">Create a poll in a minute and share it right away.</p>
                 </div>
                 <div>
-                  <p className="font-semibold text-gray-900">Clear results</p>
-                  <p className="mt-1">See which options are leading without digging around.</p>
+                  <p className="font-semibold text-gray-900">Realtime analytics</p>
+                  <p className="mt-1">Watch responses land without refreshing the page.</p>
                 </div>
                 <div>
                   <p className="font-semibold text-gray-900">Flexible voting</p>
-                  <p className="mt-1">Use anonymous mode when you want more honest answers.</p>
+                  <p className="mt-1">Choose anonymous or authenticated voting per poll.</p>
                 </div>
               </div>
-            </div>
+            </motion.div>
 
-            <div className="panel p-5">
+            <motion.div
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="panel p-5"
+            >
               <p className="text-sm text-gray-500">Typical uses</p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {["Class feedback", "Club decisions", "Sprint check-ins", "Demo day votes"].map(
@@ -151,7 +136,7 @@ export default function HomePage({ authToken, currentUser, onLogout }) {
                   ),
                 )}
               </div>
-            </div>
+            </motion.div>
           </div>
         </section>
 
@@ -159,21 +144,27 @@ export default function HomePage({ authToken, currentUser, onLogout }) {
           {[
             {
               label: "Create polls",
-              text: "Add as many questions as you need and keep the form structured.",
+              text: "Add as many questions as you need and keep the flow structured.",
             },
             {
               label: "Collect votes",
-              text: "Share a single link so people can answer on any device.",
+              text: "Share a single link so people can respond from any device.",
             },
             {
               label: "Review results",
-              text: "See totals and percentages in a layout that stays easy to scan.",
+              text: "Track trends, turnout, and the strongest options in one place.",
             },
-          ].map((item) => (
-            <div key={item.label} className="panel p-5">
+          ].map((item, index) => (
+            <motion.div
+              key={item.label}
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.08 + index * 0.04 }}
+              className="panel p-5"
+            >
               <h2 className="text-base font-semibold text-gray-900">{item.label}</h2>
               <p className="mt-2 text-sm leading-6 text-gray-600">{item.text}</p>
-            </div>
+            </motion.div>
           ))}
         </section>
 
@@ -190,10 +181,7 @@ export default function HomePage({ authToken, currentUser, onLogout }) {
           {isLoading ? (
             <LoadingSpinner className="py-16" />
           ) : errorMessage ? (
-            <EmptyState
-              title="Could not load recent polls"
-              description={errorMessage}
-            />
+            <EmptyState title="Could not load recent polls" description={errorMessage} />
           ) : recentPolls.length === 0 ? (
             <EmptyState
               title="No polls yet"
@@ -204,7 +192,7 @@ export default function HomePage({ authToken, currentUser, onLogout }) {
           ) : (
             <div className="grid gap-4 lg:grid-cols-2">
               {recentPolls.map((poll) => (
-                <PollCard key={poll.id || poll._id} poll={poll} />
+                <PollCard key={poll.id} poll={poll} />
               ))}
             </div>
           )}

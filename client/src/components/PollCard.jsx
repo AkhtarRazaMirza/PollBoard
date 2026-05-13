@@ -1,66 +1,26 @@
+import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-
-function formatDate(dateValue) {
-  if (!dateValue) {
-    return "No expiry";
-  }
-
-  const date = new Date(dateValue);
-
-  if (Number.isNaN(date.getTime())) {
-    return "No expiry";
-  }
-
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(date);
-}
-
-function getQuestionCount(poll) {
-  return poll.questions?.length || poll.questionCount || 0;
-}
-
-function getResponseCount(poll) {
-  return (
-    poll.responseCount ||
-    poll.responsesCount ||
-    poll.totalResponses ||
-    poll.totalVotes ||
-    poll.voteCount ||
-    0
-  );
-}
-
-function getVoteAccessLabel(poll) {
-  const voteAccess =
-    poll.voteAccess ||
-    (poll.isAnonymous ? "anonymous" : "authenticated");
-
-  return voteAccess === "authenticated"
-    ? "Login required"
-    : "Anonymous voting";
-}
-
-function getStatus(poll) {
-  if (poll.isClosed || poll.closed) {
-    return "Closed";
-  }
-
-  const expiryValue = poll.expiresAt || poll.expiryDate;
-
-  if (expiryValue && new Date(expiryValue) < new Date()) {
-    return "Expired";
-  }
-
-  return "Active";
-}
+import {
+  formatShortDate,
+  getPollStatus,
+  getQuestionCount,
+  getResponseCount,
+  getVoteAccessLabel,
+  normalizePoll,
+} from "../utils/polls";
 
 const statusStyles = {
-  Active: "bg-green-50 text-green-700",
-  Expired: "bg-amber-50 text-amber-700",
-  Closed: "bg-gray-100 text-gray-700",
+  active: "bg-green-50 text-green-700",
+  expired: "bg-amber-50 text-amber-700",
+  closed: "bg-gray-100 text-gray-700",
+  published: "bg-blue-50 text-blue-700",
+};
+
+const statusLabels = {
+  active: "Active",
+  expired: "Expired",
+  closed: "Closed",
+  published: "Published",
 };
 
 export default function PollCard({
@@ -68,31 +28,40 @@ export default function PollCard({
   showVoteAction = true,
   showResultsAction = true,
 }) {
-  const pollId = poll._id || poll.id;
-  const status = getStatus(poll);
-  const responses = getResponseCount(poll);
-  const questionCount = getQuestionCount(poll);
-  const createdDate = poll.createdAt || poll.createdOn;
-  const resultsVisibility = poll.resultsPublished
+  const normalizedPoll = normalizePoll(poll);
+  const pollId = normalizedPoll.id;
+  const status = getPollStatus(normalizedPoll);
+  const responses = getResponseCount(normalizedPoll);
+  const questionCount = getQuestionCount(normalizedPoll);
+  const resultsVisibility = normalizedPoll.resultsPublished
     ? "Public results"
     : "Private results";
 
   return (
-    <article className="panel p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-soft">
+    <motion.article
+      layout
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.22 }}
+      className="panel p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-soft"
+    >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-lg font-semibold text-gray-900">{poll.title}</h3>
+            <h3 className="text-lg font-semibold text-gray-900">
+              {normalizedPoll.title}
+            </h3>
             <span
-              className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyles[status] || statusStyles.Active
-                }`}
+              className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                statusStyles[status] || statusStyles.active
+              }`}
             >
-              {status}
+              {statusLabels[status] || "Active"}
             </span>
           </div>
 
           <p className="mt-2 text-sm leading-6 text-gray-600">
-            {poll.description || "A simple poll ready to collect responses."}
+            {normalizedPoll.description || "A simple poll ready to collect responses."}
           </p>
         </div>
 
@@ -103,16 +72,16 @@ export default function PollCard({
       </div>
 
       <div className="mt-4 flex flex-wrap gap-4 text-xs font-medium uppercase tracking-[0.14em] text-gray-500">
-        <span>Created {formatDate(createdDate)}</span>
-        <span>Expires {formatDate(poll.expiresAt || poll.expiryDate)}</span>
-        <span>{getVoteAccessLabel(poll)}</span>
+        <span>Created {formatShortDate(normalizedPoll.createdAt)}</span>
+        <span>Expires {formatShortDate(normalizedPoll.expiresAt)}</span>
+        <span>{getVoteAccessLabel(normalizedPoll)}</span>
         <span>{resultsVisibility}</span>
       </div>
 
       <div className="mt-5 flex flex-wrap gap-3">
         {showVoteAction && pollId ? (
           <Link to={`/poll/${pollId}`} className="btn-primary">
-            Open poll
+            {normalizedPoll.resultsPublished ? "View live results" : "Open poll"}
           </Link>
         ) : null}
 
@@ -122,6 +91,6 @@ export default function PollCard({
           </Link>
         ) : null}
       </div>
-    </article>
+    </motion.article>
   );
 }

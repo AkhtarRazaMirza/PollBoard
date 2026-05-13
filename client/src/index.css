@@ -16,7 +16,9 @@ html {
 
 body {
   min-height: 100vh;
-  background: #f3f4f6;
+  background:
+    radial-gradient(circle at top, rgba(191, 219, 254, 0.35), transparent 40%),
+    linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
   color: #111827;
   font-family: "Manrope", ui-sans-serif, system-ui, sans-serif;
 }
@@ -33,14 +35,14 @@ select {
 }
 
 .shadow-soft {
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
 }
 
 .panel {
   border: 1px solid #e5e7eb;
   border-radius: 0.9rem;
-  background: #ffffff;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
 }
 
 .field {
@@ -51,7 +53,10 @@ select {
   padding: 0.7rem 0.85rem;
   font-size: 0.95rem;
   color: #111827;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
 }
 
 .field::placeholder {
@@ -73,7 +78,11 @@ select {
   padding: 0.7rem 1rem;
   font-size: 0.95rem;
   line-height: 1;
-  transition: all 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .btn-primary {
@@ -84,8 +93,10 @@ select {
 }
 
 .btn-primary:hover {
+  transform: translateY(-1px);
   background: #1d4ed8;
   border-color: #1d4ed8;
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.2);
 }
 
 .btn-secondary {
@@ -96,6 +107,7 @@ select {
 }
 
 .btn-secondary:hover {
+  transform: translateY(-1px);
   background: #f9fafb;
   border-color: #9ca3af;
 }
@@ -104,6 +116,8 @@ select {
 .btn-secondary:disabled {
   cursor: not-allowed;
   opacity: 0.6;
+  transform: none;
+  box-shadow: none;
 }
 
 .text-link {
@@ -129,6 +143,10 @@ select {
   animation: skeleton-shimmer 1.2s ease-in-out infinite;
 }
 
+.print-hidden {
+  display: inherit;
+}
+
 @keyframes skeleton-shimmer {
   0% {
     background-position: 200% 0;
@@ -136,5 +154,22 @@ select {
 
   100% {
     background-position: -200% 0;
+  }
+}
+
+@media print {
+  body {
+    background: #ffffff;
+  }
+
+  header,
+  .print-hidden {
+    display: none !important;
+  }
+
+  .panel {
+    box-shadow: none;
+    border-color: #d1d5db;
+    background: #ffffff;
   }
 }

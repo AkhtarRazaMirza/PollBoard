@@ -42,6 +42,23 @@ const responseSchema = new mongoose.Schema(
             default: null,
         },
 
+        anonymousVoterHash: {
+            type: String,
+            required: false,
+            default: null,
+            trim: true,
+            maxlength: 128,
+        },
+
+        submissionType: {
+            type: String,
+            enum: [
+                "anonymous",
+                "authenticated",
+            ],
+            default: "authenticated",
+        },
+
         answers: {
             type: [answerSchema],
             required: true,
@@ -71,13 +88,22 @@ const responseSchema = new mongoose.Schema(
 
 // prevent duplicate voting
 responseSchema.index(
-  { poll: 1, respondent: 1 },
-  {
-    unique: true,
-    partialFilterExpression: {
-      respondent: { $type: "objectId" },
-    },
-  }
+    { poll: 1, respondent: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+        },
+    }
+);
+
+responseSchema.index(
+    { poll: 1, anonymousVoterHash: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            anonymousVoterHash: { $type: "string" },
+        },
+    }
 );
 
 export const Response = mongoose.model(
