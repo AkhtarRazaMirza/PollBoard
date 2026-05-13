@@ -34,8 +34,8 @@ function normalizePolls(payload) {
   return extractPollList(payload).map((poll, index) => ({
     ...poll,
     id: poll.id || poll._id || `poll-${index}`,
-    title: poll.title || "Untitled poll",
-    description: poll.description || "",
+    title: poll.title || poll.pollTitle || "Untitled poll",
+    description: poll.description || poll.pollDescription || "",
   }));
 }
 

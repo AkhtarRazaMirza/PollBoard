@@ -8,42 +8,25 @@ function validateSignup(values) {
   const errors = {};
 
   if (!values.firstName.trim()) {
-    errors.firstName = "firstName is required.";
+    errors.firstName = "First name is required.";
   }
 
   if (!values.lastName.trim()) {
-    errors.lastName = "lastName is required.";
+    errors.lastName = "Last name is required.";
   }
 
-  if (values.email.trim().length < 6) {
-    errors.email = "email is required";
+  if (!values.email.trim()) {
+    errors.email = "Email is required.";
   }
 
-  if (!values.password.trim()) {
-    errors.confirmPassword = "password is required";
+  if (values.password.trim().length < 8) {
+    errors.password = "Use at least 8 characters.";
   }
 
   return errors;
 }
 
-function extractAuthSession(payload, fallbackUser) {
-  const token =
-    payload?.token ||
-    payload?.accessToken ||
-    payload?.jwt ||
-    payload?.data?.token ||
-    payload?.data?.accessToken;
-
-  const user =
-    payload?.user ||
-    payload?.data?.user ||
-    payload?.account ||
-    payload?.data?.account || fallbackUser;
-
-  return { token, user };
-}
-
-export default function SignupPage({ showNotification, updateAuthSession }) {
+export default function SignupPage({ showNotification }) {
   const navigate = useNavigate();
   const [formValues, setFormValues] = useState({
     firstName: "",
@@ -79,14 +62,13 @@ export default function SignupPage({ showNotification, updateAuthSession }) {
       const payload = {
         firstName: formValues.firstName.trim(),
         lastName: formValues.lastName.trim(),
-        email: formValues.email,
-        password: formValues.password
+        email: formValues.email.trim(),
+        password: formValues.password,
       };
 
       await api.post("/auth/signup", payload);
       showNotification("Account created successfully. Please log in.", "success");
       navigate("/login", { replace: true });
-
     } catch (error) {
       const message = error.message || "Signup failed. Please try again.";
       setServerError(message);
@@ -111,14 +93,14 @@ export default function SignupPage({ showNotification, updateAuthSession }) {
           <form onSubmit={submitSignup} className="mt-6 space-y-5">
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">
-                First Name
+                First name
               </label>
               <input
                 type="text"
                 value={formValues.firstName}
                 onChange={(event) => updateField("firstName", event.target.value)}
                 className="field"
-                placeholder="Frist Name"
+                placeholder="First name"
               />
               {submitAttempted && validationErrors.firstName ? (
                 <p className="mt-2 text-sm text-red-600">{validationErrors.firstName}</p>
@@ -127,14 +109,14 @@ export default function SignupPage({ showNotification, updateAuthSession }) {
 
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">
-                Last Name
+                Last name
               </label>
               <input
                 type="text"
                 value={formValues.lastName}
                 onChange={(event) => updateField("lastName", event.target.value)}
                 className="field"
-                placeholder="Last Name"
+                placeholder="Last name"
               />
               {submitAttempted && validationErrors.lastName ? (
                 <p className="mt-2 text-sm text-red-600">{validationErrors.lastName}</p>
@@ -143,34 +125,30 @@ export default function SignupPage({ showNotification, updateAuthSession }) {
 
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">
-                email
+                Email
               </label>
               <input
                 type="email"
                 value={formValues.email}
                 onChange={(event) => updateField("email", event.target.value)}
                 className="field"
-                placeholder="youremail@gmail.com"
+                placeholder="you@example.com"
               />
               {submitAttempted && validationErrors.email ? (
-                <p className="mt-2 text-sm text-red-600">
-                  {validationErrors.email}
-                </p>
+                <p className="mt-2 text-sm text-red-600">{validationErrors.email}</p>
               ) : null}
             </div>
 
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">
-                password
+                Password
               </label>
               <input
                 type="password"
                 value={formValues.password}
-                onChange={(event) =>
-                  updateField("password", event.target.value)
-                }
+                onChange={(event) => updateField("password", event.target.value)}
                 className="field"
-                placeholder="Enter your password"
+                placeholder="At least 8 characters"
               />
               {submitAttempted && validationErrors.password ? (
                 <p className="mt-2 text-sm text-red-600">

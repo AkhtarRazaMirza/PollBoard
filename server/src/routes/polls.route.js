@@ -2,31 +2,57 @@ import { Router } from "express";
 
 import PollController from "../controllers/poll.controller.js";
 
-import { authMiddleware } from "../middleware/auth.middeleware.js";
+import {
+    authMiddleware,
+    optionalAuthMiddleware,
+} from "../middleware/auth.middeleware.js";
 
 const router = Router();
 
-router.use(authMiddleware);
+router.get(
+    "/recent",
+    PollController.getRecentPolls
+);
 
-// create poll
-router.post("/", PollController.createPoll);
+router.get(
+    "/",
+    PollController.getRecentPolls
+);
 
-// all polls
 router.get(
     "/my-polls",
+    authMiddleware,
     PollController.getUserPolls
 );
 
-// get poll
-router.get("/:pollId", PollController.getPollById);
+router.post(
+    "/",
+    authMiddleware,
+    PollController.createPoll
+);
 
-// vote on poll
-router.post("/:pollId/vote", PollController.votePoll);
+router.get(
+    "/:pollId",
+    optionalAuthMiddleware,
+    PollController.getPollById
+);
 
-// get results
+router.post(
+    "/:pollId/vote",
+    optionalAuthMiddleware,
+    PollController.votePoll
+);
+
 router.get(
     "/:pollId/results",
+    optionalAuthMiddleware,
     PollController.getPollResults
+);
+
+router.patch(
+    "/:pollId/publish",
+    authMiddleware,
+    PollController.publishPollResults
 );
 
 export default router;

@@ -55,7 +55,7 @@ export default function App() {
       if (authToken) {
         await api.post("/auth/logout");
       }
-    } catch (error) {
+       } catch {
       // A missing logout endpoint should not block the user from leaving the session.
     } finally {
       clearAuthSession();

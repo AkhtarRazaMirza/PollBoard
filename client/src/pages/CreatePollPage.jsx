@@ -90,7 +90,7 @@ export default function CreatePollPage({ showNotification }) {
   const [formValues, setFormValues] = useState({
     title: "",
     description: "",
-    isAnonymous: true,
+    voteAccess: "anonymous",
     expiresAt: "",
     questions: [createQuestion()],
   });
@@ -115,9 +115,9 @@ export default function CreatePollPage({ showNotification }) {
       questions: previousValues.questions.map((question) =>
         question.id === questionId
           ? {
-            ...question,
-            [fieldName]: value,
-          }
+              ...question,
+              [fieldName]: value,
+            }
           : question,
       ),
     }));
@@ -129,16 +129,16 @@ export default function CreatePollPage({ showNotification }) {
       questions: previousValues.questions.map((question) =>
         question.id === questionId
           ? {
-            ...question,
-            options: question.options.map((option) =>
-              option.id === optionId
-                ? {
-                  ...option,
-                  text: value,
-                }
-                : option,
-            ),
-          }
+              ...question,
+              options: question.options.map((option) =>
+                option.id === optionId
+                  ? {
+                      ...option,
+                      text: value,
+                    }
+                  : option,
+              ),
+            }
           : question,
       ),
     }));
@@ -164,9 +164,9 @@ export default function CreatePollPage({ showNotification }) {
       questions: previousValues.questions.map((question) =>
         question.id === questionId
           ? {
-            ...question,
-            options: [...question.options, createOption()],
-          }
+              ...question,
+              options: [...question.options, createOption()],
+            }
           : question,
       ),
     }));
@@ -178,12 +178,12 @@ export default function CreatePollPage({ showNotification }) {
       questions: previousValues.questions.map((question) =>
         question.id === questionId
           ? {
-            ...question,
-            options:
-              question.options.length <= 2
-                ? question.options
-                : question.options.filter((option) => option.id !== optionId),
-          }
+              ...question,
+              options:
+                question.options.length <= 2
+                  ? question.options
+                  : question.options.filter((option) => option.id !== optionId),
+            }
           : question,
       ),
     }));
@@ -208,12 +208,13 @@ export default function CreatePollPage({ showNotification }) {
       const payload = {
         pollTitle: formValues.title.trim(),
         pollDescription: formValues.description.trim(),
-        isAnonymous: formValues.isAnonymous,
+        voteAccess: formValues.voteAccess,
+        isAnonymous: formValues.voteAccess === "anonymous",
         expiresAt: expiryDate,
-
         questions: formValues.questions.map((question) => ({
           questionText: question.prompt.trim(),
-
+          required: question.required,
+          isRequired: question.required,
           options: question.options
             .map((option) => option.text.trim())
             .filter(Boolean),
@@ -231,7 +232,7 @@ export default function CreatePollPage({ showNotification }) {
   };
 
   return (
-    <form onSubmit={createPoll} className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+    <form onSubmit={createPoll} className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
       <div className="space-y-6">
         <section className="panel p-5">
           <div className="grid gap-5">
@@ -296,21 +297,52 @@ export default function CreatePollPage({ showNotification }) {
         <section className="panel p-5">
           <h2 className="text-base font-semibold text-gray-900">Poll settings</h2>
 
-          <div className="mt-4 space-y-4">
-            <label className="flex items-start gap-3 text-sm text-gray-700">
-              <input
-                type="checkbox"
-                checked={formValues.isAnonymous}
-                onChange={(event) => updateField("isAnonymous", event.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-200"
-              />
-              <span>
-                <span className="block font-medium text-gray-900">Anonymous poll</span>
-                <span className="mt-1 block text-gray-500">
-                  People can answer without their names being attached.
-                </span>
-              </span>
-            </label>
+          <div className="mt-4 space-y-5">
+            <div>
+              <p className="mb-2 text-sm font-medium text-gray-700">Who can vote?</p>
+              <div className="grid gap-3">
+                {[
+                  {
+                    value: "anonymous",
+                    label: "Anonymous voting",
+                    description: "Anyone with the link can answer without logging in.",
+                  },
+                  {
+                    value: "authenticated",
+                    label: "Login required",
+                    description: "Respondents need an account before they can vote.",
+                  },
+                ].map((option) => (
+                  <label
+                    key={option.value}
+                    className={`cursor-pointer rounded-xl border px-4 py-3 transition-all duration-200 ${
+                      formValues.voteAccess === option.value
+                        ? "border-blue-300 bg-blue-50"
+                        : "border-gray-200 bg-white hover:border-gray-300"
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="radio"
+                        name="voteAccess"
+                        value={option.value}
+                        checked={formValues.voteAccess === option.value}
+                        onChange={(event) => updateField("voteAccess", event.target.value)}
+                        className="mt-1 h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-200"
+                      />
+                      <span>
+                        <span className="block text-sm font-semibold text-gray-900">
+                          {option.label}
+                        </span>
+                        <span className="mt-1 block text-sm text-gray-500">
+                          {option.description}
+                        </span>
+                      </span>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
 
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">
@@ -340,7 +372,11 @@ export default function CreatePollPage({ showNotification }) {
               )}{" "}
               total options
             </p>
-            <p>{formValues.isAnonymous ? "Anonymous mode is on" : "Login required to identify voters"}</p>
+            <p>
+              {formValues.voteAccess === "anonymous"
+                ? "Anonymous voting is enabled"
+                : "Only logged-in users can vote"}
+            </p>
           </div>
 
           <button

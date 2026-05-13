@@ -1,9 +1,17 @@
 import axios from "axios";
 
+const apiBaseUrl =
+  import.meta.env.VITE_API_BASE_URL ||
+  "http://localhost:8080/api";
+
 export const storageKeys = {
   token: "pollboard_token",
   user: "pollboard_user",
 };
+
+export const socketBaseURL =
+  import.meta.env.VITE_SOCKET_URL ||
+  apiBaseUrl.replace(/\/api\/?$/, "");
 
 export const getStoredToken = () => localStorage.getItem(storageKeys.token);
 
@@ -16,7 +24,7 @@ export const getStoredUser = () => {
 
   try {
     return JSON.parse(storedUser);
-  } catch (error) {
+  } catch {
     localStorage.removeItem(storageKeys.user);
     return null;
   }
@@ -58,7 +66,7 @@ export const getApiErrorMessage = (error) => {
 };
 
 const api = axios.create({
-  baseURL:  "http://localhost:8080/api",
+  baseURL: apiBaseUrl,
   headers: {
     "Content-Type": "application/json",
   },

@@ -1,34 +1,29 @@
 import { AuthService } from "../services/auth.service.js";
 
 import { ApiResponse } from "../utils/responce.js";
-
 import { ApiError } from "../utils/error.js";
 
 export class AuthController {
-
     // REGISTER
     static register = async (
         req,
         res,
         next
     ) => {
-
         try {
-
             const userData =
                 await AuthService.register(
                     req.body
                 );
 
             return res.status(201).json(
-                ApiResponse.created(
-                    "User registered successfully",
-                    userData
+                new ApiResponse(
+                    201,
+                    userData,
+                    "User registered successfully"
                 )
             );
-
         } catch (error) {
-
             next(error);
         }
     };
@@ -39,38 +34,28 @@ export class AuthController {
         res,
         next
     ) => {
-
         try {
-
             const userData =
                 await AuthService.login(
                     req.body
                 );
 
             return res.status(200).json(
-                ApiResponse.success(
-                    "Login successful",
-                    userData
+                new ApiResponse(
+                    200,
+                    userData,
+                    "Login successful"
                 )
             );
-
         } catch (error) {
-
             next(error);
         }
     };
 
     // CURRENT USER
-    static me = async (
-        req,
-        res,
-        next
-    ) => {
-
+    static me = async (req, res, next ) => {
         try {
-
             if (!req.user) {
-
                 throw ApiError.unauthorized(
                     "Unauthorized access"
                 );
@@ -82,14 +67,13 @@ export class AuthController {
                 );
 
             return res.status(200).json(
-                ApiResponse.fetched(
-                    "User fetched successfully",
-                    user
+                new ApiResponse(
+                    200,
+                    user,
+                    "User fetched successfully"
                 )
             );
-
         } catch (error) {
-
             next(error);
         }
     };
@@ -100,20 +84,18 @@ export class AuthController {
         res,
         next
     ) => {
-
         try {
-
             const data =
                 await AuthService.logout();
 
             return res.status(200).json(
-                ApiResponse.success(
+                new ApiResponse(
+                    200,
+                    data,
                     data.message
                 )
             );
-
         } catch (error) {
-
             next(error);
         }
     };

@@ -104,6 +104,7 @@ export default function AppRoutes({
             authToken={authToken}
             currentUser={currentUser}
             onLogout={logout}
+            showNotification={showNotification}
           />
         }
       />

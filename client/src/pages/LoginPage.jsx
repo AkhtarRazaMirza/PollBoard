@@ -76,7 +76,6 @@ export default function LoginPage({ showNotification, updateAuthSession }) {
 
     try {
       const response = await api.post("/auth/login", formValues);
-      console.log(response.data);
       const { token, user } = extractAuthSession(response.data, formValues.email);
 
       if (!token) {

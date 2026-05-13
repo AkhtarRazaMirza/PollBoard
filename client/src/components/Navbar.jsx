@@ -9,8 +9,11 @@ export default function Navbar({
   links = defaultLinks,
 }) {
   const displayName =
-    currentUser?.name || currentUser?.username || currentUser?.email || "Signed in";
-
+    currentUser?.name ||
+    [currentUser?.firstName, currentUser?.lastName].filter(Boolean).join(" ") ||
+    currentUser?.username ||
+    currentUser?.email ||
+    "Signed in";
   return (
     <header className="border-b border-gray-200 bg-white/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 md:px-6">

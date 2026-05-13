@@ -13,7 +13,8 @@ const questionSchema = new mongoose.Schema(
                     return value.trim().length > 0;
                 },
 
-                message: "Question text cannot be empty",
+                message:
+                    "Question text cannot be empty",
             },
         },
 
@@ -34,8 +35,10 @@ const questionSchema = new mongoose.Schema(
                         options.length >= 2 &&
                         options.every(
                             (option) =>
-                                typeof option === "string" &&
-                                option.trim().length > 0
+                                typeof option ===
+                                    "string" &&
+                                option.trim()
+                                    .length > 0
                         )
                     );
                 },
@@ -45,11 +48,16 @@ const questionSchema = new mongoose.Schema(
             },
         },
 
+        required: {
+            type: Boolean,
+            default: true,
+        },
+
         isRequired: {
             type: Boolean,
             default: true,
         },
-    },
+    }
 );
 
 const pollSchema = new mongoose.Schema(
@@ -65,7 +73,8 @@ const pollSchema = new mongoose.Schema(
                     return value.trim().length > 0;
                 },
 
-                message: "Poll title cannot be empty",
+                message:
+                    "Poll title cannot be empty",
             },
         },
 
@@ -103,7 +112,26 @@ const pollSchema = new mongoose.Schema(
             default: false,
         },
 
+        voteAccess: {
+            type: String,
+            enum: [
+                "anonymous",
+                "authenticated",
+            ],
+            default: "authenticated",
+        },
+
         isPublished: {
+            type: Boolean,
+            default: false,
+        },
+
+        resultsPublished: {
+            type: Boolean,
+            default: false,
+        },
+
+        isClosed: {
             type: Boolean,
             default: false,
         },
@@ -113,10 +141,14 @@ const pollSchema = new mongoose.Schema(
 
             validate: {
                 validator: function (value) {
-                    return !value || value > new Date();
+                    return (
+                        !value ||
+                        value > new Date()
+                    );
                 },
 
-                message: "Expiry date must be in the future",
+                message:
+                    "Expiry date must be in the future",
             },
         },
 
@@ -129,13 +161,74 @@ const pollSchema = new mongoose.Schema(
     },
     {
         timestamps: true,
+        toJSON: {
+            virtuals: true,
+        },
+        toObject: {
+            virtuals: true,
+        },
     }
 );
 
-pollSchema.virtual("isExpired").get(function () {
-    return this.expiresAt && this.expiresAt < new Date();
-});
+questionSchema.pre(
+    "validate",
+    function () {
+        const requiredValue =
+            typeof this.required ===
+            "boolean"
+                ? this.required
+                : this.isRequired;
+
+        this.required =
+            typeof requiredValue ===
+            "boolean"
+                ? requiredValue
+                : true;
+
+        this.isRequired =
+            this.required;
+    }
+);
+
+pollSchema.pre(
+    "validate",
+    function () {
+        if (!this.voteAccess) {
+            this.voteAccess =
+                this.isAnonymous
+                    ? "anonymous"
+                    : "authenticated";
+        }
+
+        this.isAnonymous =
+            this.voteAccess ===
+            "anonymous";
+
+        if (this.resultsPublished) {
+            this.isPublished = true;
+        }
+
+        if (
+            this.resultsPublished &&
+            !this.isClosed
+        ) {
+            this.isClosed = true;
+        }
+    }
+);
+
+pollSchema.virtual("isExpired").get(
+    function () {
+        return (
+            this.expiresAt &&
+            this.expiresAt < new Date()
+        );
+    }
+);
 
 pollSchema.index({ expiresAt: 1 });
 
-export const Poll = mongoose.model("Poll", pollSchema);
+export const Poll = mongoose.model(
+    "Poll",
+    pollSchema
+);

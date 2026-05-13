@@ -23,58 +23,58 @@ export class ApiResponse {
     }
 
     static created(
-        message = "Resource created successfully",
-        data = null
+        data = null,
+        message = "Resource created successfully"
     ) {
         return new ApiResponse(
             201,
-            message,
-            data
+            data,
+            message
         );
     }
 
     static updated(
-        message = "Resource updated successfully",
-        data = null
+        data = null,
+        message = "Resource updated successfully"
     ) {
         return new ApiResponse(
             200,
-            message,
-            data
+            data,
+            message
         );
     }
 
     static deleted(
-        message = "Resource deleted successfully",
-        data = null
+        data = null,
+        message = "Resource deleted successfully"
     ) {
         return new ApiResponse(
             200,
-            message,
-            data
+            data,
+            message
         );
     }
 
     static fetched(
-        message = "Data fetched successfully",
-        data = null
+        data = null,
+        message = "Data fetched successfully"
     ) {
         return new ApiResponse(
             200,
-            message,
-            data
+            data,
+            message
         );
     }
 
     static findOne(
-        massage = "Data finded successfully",
-        data = null
+        data = null,
+        message = "Data found successfully"
     ) {
         return new ApiResponse(
             200,
-            massage,
-            data
-        )
+            data,
+            message
+        );
     }
 }
 

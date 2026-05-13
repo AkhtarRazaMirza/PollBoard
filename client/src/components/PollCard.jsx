@@ -33,6 +33,16 @@ function getResponseCount(poll) {
   );
 }
 
+function getVoteAccessLabel(poll) {
+  const voteAccess =
+    poll.voteAccess ||
+    (poll.isAnonymous ? "anonymous" : "authenticated");
+
+  return voteAccess === "authenticated"
+    ? "Login required"
+    : "Anonymous voting";
+}
+
 function getStatus(poll) {
   if (poll.isClosed || poll.closed) {
     return "Closed";
@@ -63,6 +73,9 @@ export default function PollCard({
   const responses = getResponseCount(poll);
   const questionCount = getQuestionCount(poll);
   const createdDate = poll.createdAt || poll.createdOn;
+  const resultsVisibility = poll.resultsPublished
+    ? "Public results"
+    : "Private results";
 
   return (
     <article className="panel p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-soft">
@@ -71,9 +84,8 @@ export default function PollCard({
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-lg font-semibold text-gray-900">{poll.title}</h3>
             <span
-              className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                statusStyles[status] || statusStyles.Active
-              }`}
+              className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyles[status] || statusStyles.Active
+                }`}
             >
               {status}
             </span>
@@ -93,6 +105,8 @@ export default function PollCard({
       <div className="mt-4 flex flex-wrap gap-4 text-xs font-medium uppercase tracking-[0.14em] text-gray-500">
         <span>Created {formatDate(createdDate)}</span>
         <span>Expires {formatDate(poll.expiresAt || poll.expiryDate)}</span>
+        <span>{getVoteAccessLabel(poll)}</span>
+        <span>{resultsVisibility}</span>
       </div>
 
       <div className="mt-5 flex flex-wrap gap-3">
