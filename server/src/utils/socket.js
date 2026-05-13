@@ -13,6 +13,7 @@ export const socketEvents = {
 };
 
 export const getPollRoom = (
+    pollId
 ) => `poll:${pollId}`;
 
 const getPollIdFromRoom = (

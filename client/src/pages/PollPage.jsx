@@ -63,7 +63,9 @@ export default function PollPage({
 
       try {
         const response = await api.get(`/polls/${id}`);
-        const nextPoll = normalizePoll(response.data);
+        const nextPoll = normalizePoll(
+          response.data?.data || response.data
+        );
 
         if (!isActive) {
           return;
@@ -81,7 +83,12 @@ export default function PollPage({
             return;
           }
 
-          applyResultsState(normalizeAnalytics(resultsResponse.data));
+          applyResultsState(
+            normalizeAnalytics(
+              resultsResponse.data?.data ||
+              resultsResponse.data
+            )
+          );
         } else {
           setResults(null);
         }
@@ -441,8 +448,8 @@ export default function PollPage({
                             <label
                               key={optionId}
                               className={`flex cursor-pointer items-start gap-3 rounded-lg border px-4 py-3 transition-all duration-200 ${answers[questionId] === optionId
-                                  ? "border-blue-300 bg-blue-50"
-                                  : "border-gray-200 bg-white hover:border-gray-300"
+                                ? "border-blue-300 bg-blue-50"
+                                : "border-gray-200 bg-white hover:border-gray-300"
                                 }`}
                             >
                               <input

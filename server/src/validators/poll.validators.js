@@ -1,10 +1,7 @@
 import { z } from "zod";
 
 const questionPromptSchema =
-    z.union([
-        z.string().trim(),
-        z.undefined(),
-    ]);
+    z.string().trim().optional();
 
 const optionInputSchema = z.union([
     z.string(),
@@ -107,10 +104,9 @@ export const createPollSchema = z
             .boolean()
             .optional(),
         expiresAt: z
-            .union([
-                z.iso.datetime(),
-                z.null(),
-            ])
+            .coerce
+            .date()
+            .nullable()
             .optional(),
         timePerQuestion: z
             .coerce.number()

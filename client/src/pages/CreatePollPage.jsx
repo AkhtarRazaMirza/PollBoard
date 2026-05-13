@@ -218,13 +218,12 @@ export default function CreatePollPage({ showNotification }) {
           required: question.required,
           isRequired: question.required,
           options: question.options
-            .filter((option) => option.text.trim())
-            .map((option) => ({
-              text: option.text.trim(),
-            })),
+            .map((option) => option.text.trim())
+            .filter(Boolean),
         })),
       };
 
+      console.log("PAYLOAD:", JSON.stringify(payload, null, 2));
       await api.post("/polls", payload);
       showNotification("Poll created successfully.", "success");
       navigate("/dashboard");
