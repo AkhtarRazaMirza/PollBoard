@@ -25,7 +25,12 @@ export function createApp() {
         })
     );
 
-    app.use(cors(corsOptions));
+    app.use(
+        cors({
+            origin: true,
+            credentials: true,
+        })
+    );
 
     app.use(
         rateLimit({
