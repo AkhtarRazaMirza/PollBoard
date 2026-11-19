@@ -92,6 +92,7 @@ responseSchema.index(
     {
         unique: true,
         partialFilterExpression: {
+            respondent: { $type: "objectId" },
         },
     }
 );
